@@ -1,0 +1,7 @@
+Harness status: Timeout
+
+Found 2 tests
+
+2 Timeout
+Timeout	timeupdate is emitted after a seek before the data is received: mp4.
+Timeout	timeupdate is emitted after a seek before the data is received: ogv.

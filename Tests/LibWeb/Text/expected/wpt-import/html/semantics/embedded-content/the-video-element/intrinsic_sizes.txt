@@ -1,0 +1,10 @@
+Harness status: OK
+
+Found 5 tests
+
+5 Fail
+Fail	default object size is 300x150
+Fail	default height is still 150
+Fail	default width is still 300
+Fail	default object size after src is removed
+Fail	default object size after poster is removed
