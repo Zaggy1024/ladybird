@@ -46,7 +46,11 @@ class TestType(Enum):
         self.expected_path = expected_path
 
 
-PathMapping = namedtuple("PathMapping", ["source", "destination"])
+@dataclass
+class PathMapping:
+    source: str
+    destination: str
+    download_file: bool
 
 
 class ResourceType(Enum):
@@ -58,6 +62,13 @@ class ResourceType(Enum):
 class ResourceAndType:
     resource: str
     type: ResourceType
+    download_file: bool
+
+    def __hash__(self):
+        return hash(self.resource)
+    
+    def __eq__(self, other):
+        return self.resource == other.resource
 
 
 test_type = TestType.TEXT
@@ -66,35 +77,45 @@ reference_path = None  # With parent directories
 
 
 class LinkedResourceFinder(HTMLParser):
-    def __init__(self):
+    def __init__(self, resource_type: ResourceType):
         super().__init__()
         self._tag_stack_ = []
         self._match_css_url_ = re.compile(r"url\(['\"]?(?P<url>[^'\")]+)['\"]?\)")
         self._match_css_import_string_ = re.compile(r"@import\s+\"(?P<url>[^\")]+)\"")
         self._match_fetch_import_path = re.compile(r"fetch\((\"|\')(?P<url>.*)(\"|\')\)")
         self._match_worker_import_path = re.compile(r"Worker\(\"(?P<url>.*)\"\)")
+        self._match_video_import_path = re.compile(r"getVideoURI\([\"'](?P<url>.*)[\"']\)")
+        self._match_audio_import_path = re.compile(r"getAudioURI\([\"'](?P<url>.*)[\"']\)")
+        self._resource_type = resource_type
         self._resources = set()
 
     @property
     def resources(self) -> set:
         return self._resources
 
+    def _add_resource(self, path, download_file=True):
+        self._resources.add(ResourceAndType(path, self._resource_type, download_file))
+
     def handle_starttag(self, tag, attrs):
         self._tag_stack_.append(tag)
         if ":" in tag:
             tag = tag.split(":", 1)[-1]
-        if tag in ["script", "img", "iframe"]:
+        if tag in ["script", "img", "video", "audio", "source", "iframe"]:
             attr_dict = dict(attrs)
             if "src" in attr_dict:
-                self._resources.add(attr_dict["src"])
+                self._add_resource(attr_dict["src"])
+        if tag == "video":
+            attr_dict = dict(attrs)
+            if "poster" in attr_dict:
+                self._add_resource(attr_dict["poster"])
         if tag == "link":
             attr_dict = dict(attrs)
             if "rel" in attr_dict and attr_dict["rel"] == "stylesheet":
-                self._resources.add(attr_dict["href"])
+                self._add_resource(attr_dict["href"])
         if tag == "form":
             attr_dict = dict(attrs)
             if "action" in attr_dict:
-                self._resources.add(attr_dict["action"])
+                self._add_resource(attr_dict["action"])
 
     def handle_endtag(self, tag):
         self._tag_stack_.pop()
@@ -104,21 +125,39 @@ class LinkedResourceFinder(HTMLParser):
             # Look for uses of url()
             url_iterator = self._match_css_url_.finditer(data)
             for match in url_iterator:
-                self._resources.add(match.group("url"))
+                self._add_resource(match.group("url"))
             # Look for @imports that use plain strings - we already found the url() ones
             import_iterator = self._match_css_import_string_.finditer(data)
             for match in import_iterator:
-                self._resources.add(match.group("url"))
+                self._add_resource(match.group("url"))
         elif self._tag_stack_ and self._tag_stack_[-1] == "script":
             # Look for uses of fetch()
             fetch_iterator = self._match_fetch_import_path.finditer(data)
             for match in fetch_iterator:
-                self._resources.add(match.group("url"))
+                self._add_resource(match.group("url"))
 
             # Look for uses of Worker()
             filepath_iterator = self._match_worker_import_path.finditer(data)
             for match in filepath_iterator:
-                self._resources.add(match.group("url"))
+                self._add_resource(match.group("url"))
+
+            # Look for uses of getVideoURI()
+            video_uri_iterator = self._match_video_import_path.finditer(data)
+            for match in video_uri_iterator:
+                # Add the path without an extension in order to correct the original strings
+                video_path = match.group("url")
+                self._add_resource(video_path, download_file=False)
+                self._add_resource(f"{video_path}.mp4")
+                self._add_resource(f"{video_path}.webm")
+
+            # Look for uses of getAudioURI()
+            audio_uri_iterator = self._match_audio_import_path.finditer(data)
+            for match in audio_uri_iterator:
+                # Add the path without an extension in order to correct the original strings
+                audio_path = match.group("url")
+                self._add_resource(audio_path, download_file=False)
+                self._add_resource(f"{audio_path}.mp3")
+                self._add_resource(f"{audio_path}.oga")
 
 
 class TestTypeIdentifier(HTMLParser):
@@ -169,7 +208,7 @@ def map_to_path(
         # Map to source and destination
         output_path = wpt_base_url + str(file_path).replace(base_directory, "")
 
-        filepaths.append(PathMapping(output_path, file_path.absolute()))
+        filepaths.append(PathMapping(output_path, file_path.absolute(), source.download_file))
 
     return filepaths
 
@@ -189,7 +228,7 @@ def is_crash_test(url_string):
     return False
 
 
-def modify_sources(files, resources: list[ResourceAndType]) -> None:
+def modify_sources(files, resources: set[ResourceAndType]) -> None:
     for file in files:
         # Get the distance to the wpt-imports folder
         folder_index = str(file).find(test_type.input_path)
@@ -236,6 +275,9 @@ def download_files(filepaths, wpt_base_url, skip_existing):
     downloaded_files = []
 
     for file in filepaths:
+        if not file.download_file:
+            continue
+
         normalized_path = remove_repeated_url_slashes(file.source)
         print(f"Source {normalized_path}, Destination {file.destination}")
         if normalized_path in visited_paths:
@@ -317,7 +359,7 @@ def main():
 
     print(f"Identified {url_to_import} as type {test_type}, ref {raw_reference_path}")
 
-    main_file = [ResourceAndType(resource_path, ResourceType.INPUT)]
+    main_file = [ResourceAndType(resource_path, ResourceType.INPUT, download_file=True)]
     main_paths = map_to_path(main_file, wpt_base_url, False)
 
     if test_type == TestType.REF and raw_reference_path is None:
@@ -330,6 +372,7 @@ def main():
                 PathMapping(
                     normalize_url(wpt_base_url + raw_reference_path),
                     Path(test_type.expected_path + raw_reference_path).absolute(),
+                    download_file=True
                 )
             )
         else:
@@ -338,26 +381,26 @@ def main():
                 PathMapping(
                     normalize_url(wpt_base_url + "/" + reference_path),
                     Path(test_type.expected_path + "/" + reference_path).absolute(),
+                    download_file=True
                 )
             )
 
     files_to_modify = download_files(main_paths, wpt_base_url, skip_existing)
     create_expectation_files(main_paths, skip_existing)
 
-    input_parser = LinkedResourceFinder()
+    input_parser = LinkedResourceFinder(ResourceType.INPUT)
     input_parser.feed(page)
-    additional_resources = list(map(lambda s: ResourceAndType(s, ResourceType.INPUT), input_parser.resources))
+    additional_resources = list(input_parser.resources)
+    modify_sources(files_to_modify[0:1], input_parser.resources)
 
-    expected_parser = LinkedResourceFinder()
+    expected_parser = LinkedResourceFinder(ResourceType.EXPECTED)
     for path in main_paths[1:]:
         with urlopen(path.source) as response:
             page = response.read().decode("utf-8")
             expected_parser.feed(page)
-    additional_resources.extend(
-        list(map(lambda s: ResourceAndType(s, ResourceType.EXPECTED), expected_parser.resources))
-    )
+    additional_resources.extend(expected_parser.resources)
+    modify_sources(files_to_modify[1:], expected_parser.resources)
 
-    modify_sources(files_to_modify, additional_resources)
     script_paths = map_to_path(additional_resources, wpt_base_url, True, resource_path)
     download_files(script_paths, wpt_base_url, skip_existing)
 
