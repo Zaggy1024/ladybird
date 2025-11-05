@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018-2023, Andreas Kling <andreas@ladybird.org>
+ * Copyright (c) 2025, Gregory Bertilson <gregory@ladybird.org>
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
@@ -78,11 +79,15 @@ void ImagePaintable::paint(DisplayListRecordingContext& context, PaintPhase phas
             auto image_int_rect_device_pixels = image_rect_device_pixels.to_type<int>();
             auto bitmap_rect = bitmap->rect();
             auto scaling_mode = to_gfx_scaling_mode(computed_values().image_rendering(), bitmap_rect, image_int_rect_device_pixels);
-            auto bitmap_aspect_ratio = (float)bitmap_rect.height() / bitmap_rect.width();
-            auto image_aspect_ratio = (float)image_rect.height() / (float)image_rect.width();
 
-            auto scale_x = 0.0f;
-            auto scale_y = 0.0f;
+            auto bitmap_aspect_ratio = [&] {
+                return CSSPixels(bitmap_rect.height()) / bitmap_rect.width();
+            };
+            auto image_aspect_ratio = [&] {
+                if (image_rect.width() == 0)
+                    return CSSPixelFraction(0, 1);
+                return image_rect.height() / image_rect.width();
+            };
 
             // https://drafts.csswg.org/css-images/#the-object-fit
             auto object_fit = m_is_svg_image ? CSS::ObjectFit::Contain : computed_values().object_fit();
@@ -94,26 +99,29 @@ void ImagePaintable::paint(DisplayListRecordingContext& context, PaintPhase phas
                 }
             }
 
+            auto scale_x = CSSPixelFraction(1, 1);
+            auto scale_y = CSSPixelFraction(1, 1);
+
             switch (object_fit) {
             case CSS::ObjectFit::Fill:
-                scale_x = (float)image_rect.width() / bitmap_rect.width();
-                scale_y = (float)image_rect.height() / bitmap_rect.height();
+                scale_x = image_rect.width() / bitmap_rect.width();
+                scale_y = image_rect.height() / bitmap_rect.height();
                 break;
             case CSS::ObjectFit::Contain:
-                if (bitmap_aspect_ratio >= image_aspect_ratio) {
-                    scale_x = (float)image_rect.height() / bitmap_rect.height();
+                if (bitmap_aspect_ratio() >= image_aspect_ratio()) {
+                    scale_x = image_rect.height() / bitmap_rect.height();
                     scale_y = scale_x;
                 } else {
-                    scale_x = (float)image_rect.width() / bitmap_rect.width();
+                    scale_x = image_rect.width() / bitmap_rect.width();
                     scale_y = scale_x;
                 }
                 break;
             case CSS::ObjectFit::Cover:
-                if (bitmap_aspect_ratio >= image_aspect_ratio) {
-                    scale_x = (float)image_rect.width() / bitmap_rect.width();
+                if (bitmap_aspect_ratio() >= image_aspect_ratio()) {
+                    scale_x = image_rect.width() / bitmap_rect.width();
                     scale_y = scale_x;
                 } else {
-                    scale_x = (float)image_rect.height() / bitmap_rect.height();
+                    scale_x = image_rect.height() / bitmap_rect.height();
                     scale_y = scale_x;
                 }
                 break;
@@ -122,10 +130,11 @@ void ImagePaintable::paint(DisplayListRecordingContext& context, PaintPhase phas
             case CSS::ObjectFit::None:
                 scale_x = 1;
                 scale_y = 1;
+                break;
             }
 
-            auto scaled_bitmap_width = CSSPixels::nearest_value_for(bitmap_rect.width() * scale_x);
-            auto scaled_bitmap_height = CSSPixels::nearest_value_for(bitmap_rect.height() * scale_y);
+            auto scaled_bitmap_width = CSSPixels(bitmap_rect.width()) * scale_x;
+            auto scaled_bitmap_height = CSSPixels(bitmap_rect.height()) * scale_y;
 
             auto residual_horizontal = image_rect.width() - scaled_bitmap_width;
             auto residual_vertical = image_rect.height() - scaled_bitmap_height;
