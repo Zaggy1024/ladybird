@@ -13,6 +13,7 @@
 #include <LibWeb/Layout/VideoBox.h>
 #include <LibWeb/Painting/BorderRadiusCornerClipper.h>
 #include <LibWeb/Painting/DisplayListRecorder.h>
+#include <LibWeb/Painting/ReplacedElementCommon.h>
 #include <LibWeb/Painting/VideoPaintable.h>
 
 namespace Web::Painting {
@@ -128,8 +129,8 @@ void VideoPaintable::paint(DisplayListRecordingContext& context, PaintPhase phas
 
     auto paint_frame = [&](auto const& frame) {
         auto scaling_mode = to_gfx_scaling_mode(computed_values().image_rendering(), frame->rect(), video_rect.to_type<int>());
-        auto dst_rect = video_rect.to_type<int>();
-        context.display_list_recorder().draw_scaled_immutable_bitmap(dst_rect, dst_rect, Gfx::ImmutableBitmap::create(*frame), scaling_mode);
+        auto draw_rect = get_replaced_box_painting_area(*this, context, computed_values().object_fit(), frame->size());
+        context.display_list_recorder().draw_scaled_immutable_bitmap(draw_rect, draw_rect, Gfx::ImmutableBitmap::create(*frame), scaling_mode);
     };
 
     auto paint_transparent_black = [&]() {
