@@ -12,6 +12,7 @@
 #include <AK/Time.h>
 #include <LibCore/Forward.h>
 #include <LibCore/ThreadedPromise.h>
+#include <LibMedia/Audio/SampleSpecification.h>
 #include <LibMedia/Export.h>
 
 namespace Audio {
@@ -37,7 +38,7 @@ public:
     // The AudioDataRequestCallback will be called when the Output needs more audio data to fill its buffers and
     // continue playback. This callback will only be allowed to run on one thread at a time, to prevent any data
     // race on the resource used by the callback.
-    static ErrorOr<NonnullRefPtr<PlaybackStream>> create(OutputState initial_output_state, u32 sample_rate, u8 channels, u32 target_latency_ms, AudioDataRequestCallback&&);
+    static ErrorOr<NonnullRefPtr<PlaybackStream>> create(OutputState initial_output_state, Audio::SampleSpecification, u32 target_latency_ms, AudioDataRequestCallback&&);
 
     virtual ~PlaybackStream() = default;
 

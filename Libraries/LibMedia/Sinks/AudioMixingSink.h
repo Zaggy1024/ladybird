@@ -39,6 +39,7 @@ public:
     void resume();
     void pause();
     void set_time(AK::Duration);
+    void clear_track_data(Track const&);
 
     void set_volume(double);
 
@@ -75,7 +76,7 @@ private:
     };
 
     void deferred_create_playback_stream(Track const& track);
-    void create_playback_stream(u32 sample_rate, u32 channel_count);
+    void create_playback_stream(Audio::SampleSpecification);
     ReadonlyBytes write_audio_data_to_playback_stream(Bytes buffer, Audio::PcmSampleFormat format, size_t sample_count);
 
     Core::EventLoop& m_main_thread_event_loop;
@@ -84,8 +85,7 @@ private:
     Threading::Mutex m_mutex;
     Threading::ConditionVariable m_wait_condition { m_mutex };
     RefPtr<Audio::PlaybackStream> m_playback_stream;
-    u32 m_playback_stream_sample_rate { 0 };
-    u32 m_playback_stream_channel_count { 0 };
+    Audio::SampleSpecification m_playback_stream_sample_specification;
     bool m_playing { false };
     double m_volume { 1 };
 

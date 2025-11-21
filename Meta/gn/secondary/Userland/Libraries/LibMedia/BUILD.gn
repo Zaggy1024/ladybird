@@ -30,7 +30,9 @@ shared_library("LibMedia") {
   if (enable_ffmpeg) {
     sources += [
       "Audio/FFmpegLoader.cpp",
+      "FFmpeg/FFmpegAudioConverter.cpp",
       "FFmpeg/FFmpegAudioDecoder.cpp",
+      "FFmpeg/FFmpegHelpers.cpp",
       "FFmpeg/FFmpegVideoDecoder.cpp",
     ]
   } else {

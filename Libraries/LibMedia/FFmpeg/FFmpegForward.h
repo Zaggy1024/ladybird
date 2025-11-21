@@ -12,4 +12,5 @@ struct AVFormatContext;
 struct AVIOContext;
 struct AVPacket;
 struct AVFrame;
+struct SwrContext;
 }

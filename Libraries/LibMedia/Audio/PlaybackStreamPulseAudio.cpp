@@ -22,12 +22,12 @@ namespace Audio {
         __temporary_result.release_value();                                                                  \
     })
 
-ErrorOr<NonnullRefPtr<PlaybackStream>> PlaybackStream::create(OutputState initial_output_state, u32 sample_rate, u8 channels, u32 target_latency_ms, AudioDataRequestCallback&& data_request_callback)
+ErrorOr<NonnullRefPtr<PlaybackStream>> PlaybackStream::create(OutputState initial_output_state, Audio::SampleSpecification sample_specification, u32 target_latency_ms, AudioDataRequestCallback&& data_request_callback)
 {
-    return PlaybackStreamPulseAudio::create(initial_output_state, sample_rate, channels, target_latency_ms, move(data_request_callback));
+    return PlaybackStreamPulseAudio::create(initial_output_state, sample_specification, target_latency_ms, move(data_request_callback));
 }
 
-ErrorOr<NonnullRefPtr<PlaybackStream>> PlaybackStreamPulseAudio::create(OutputState initial_state, u32 sample_rate, u8 channels, u32 target_latency_ms, AudioDataRequestCallback&& data_request_callback)
+ErrorOr<NonnullRefPtr<PlaybackStream>> PlaybackStreamPulseAudio::create(OutputState initial_state, Audio::SampleSpecification sample_specification, u32 target_latency_ms, AudioDataRequestCallback&& data_request_callback)
 {
     VERIFY(data_request_callback);
 
@@ -38,7 +38,7 @@ ErrorOr<NonnullRefPtr<PlaybackStream>> PlaybackStreamPulseAudio::create(OutputSt
     // Create the control thread and start it.
     auto thread = TRY(Threading::Thread::try_create([=, data_request_callback = move(data_request_callback)]() mutable {
         auto context = TRY_OR_EXIT_THREAD(PulseAudioContext::instance());
-        internal_state->set_stream(TRY_OR_EXIT_THREAD(context->create_stream(initial_state, sample_rate, channels, target_latency_ms, [data_request_callback = move(data_request_callback)](PulseAudioStream&, Bytes buffer, size_t sample_count) {
+        internal_state->set_stream(TRY_OR_EXIT_THREAD(context->create_stream(initial_state, sample_specification, target_latency_ms, [data_request_callback = move(data_request_callback)](PulseAudioStream&, Bytes buffer, size_t sample_count) {
             return data_request_callback(buffer, PcmSampleFormat::Float32, sample_count);
         })));
 

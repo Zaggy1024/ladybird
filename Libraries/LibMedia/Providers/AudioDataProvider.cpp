@@ -6,6 +6,8 @@
 
 #include <AK/Debug.h>
 #include <LibCore/EventLoop.h>
+#include <LibMedia/Audio/SampleSpecification.h>
+#include <LibMedia/FFmpeg/FFmpegAudioConverter.h>
 #include <LibMedia/FFmpeg/FFmpegAudioDecoder.h>
 #include <LibMedia/MutexedDemuxer.h>
 #include <LibMedia/Sinks/AudioSink.h>
@@ -21,11 +23,14 @@ DecoderErrorOr<NonnullRefPtr<AudioDataProvider>> AudioDataProvider::try_create(N
     auto codec_id = TRY(demuxer->get_codec_id_for_track(track));
     auto codec_initialization_data = TRY(demuxer->get_codec_initialization_data_for_track(track));
     auto decoder = DECODER_TRY_ALLOC(FFmpeg::FFmpegAudioDecoder::try_create(codec_id, codec_initialization_data));
+    auto converter = DECODER_TRY_ALLOC(FFmpeg::FFmpegAudioConverter::try_create());
+    DECODER_TRY_ALLOC(converter->set_output_sample_specification(Audio::SampleSpecification(44100, Audio::ChannelMap::stereo())));
 
-    auto thread_data = DECODER_TRY_ALLOC(try_make_ref_counted<AudioDataProvider::ThreadData>(demuxer, track, move(decoder)));
+    auto thread_data = DECODER_TRY_ALLOC(try_make_ref_counted<AudioDataProvider::ThreadData>(demuxer, track, move(decoder), move(converter)));
     auto provider = DECODER_TRY_ALLOC(try_make_ref_counted<AudioDataProvider>(thread_data));
 
     auto thread = DECODER_TRY_ALLOC(Threading::Thread::try_create([thread_data]() -> int {
+        thread_data->wait_for_start();
         while (!thread_data->should_thread_exit()) {
             thread_data->handle_seek();
             thread_data->push_data_and_decode_a_block();
@@ -53,16 +58,27 @@ void AudioDataProvider::set_error_handler(ErrorHandler&& handler)
     m_thread_data->set_error_handler(move(handler));
 }
 
+void AudioDataProvider::set_block_end_time_handler(BlockEndTimeHandler&& handler)
+{
+    m_thread_data->set_block_end_time_handler(move(handler));
+}
+
+void AudioDataProvider::start()
+{
+    m_thread_data->start();
+}
+
 void AudioDataProvider::seek(AK::Duration timestamp, SeekCompletionHandler&& completion_handler)
 {
     m_thread_data->seek(timestamp, move(completion_handler));
 }
 
-AudioDataProvider::ThreadData::ThreadData(NonnullRefPtr<MutexedDemuxer> const& demuxer, Track const& track, NonnullOwnPtr<AudioDecoder>&& decoder)
+AudioDataProvider::ThreadData::ThreadData(NonnullRefPtr<MutexedDemuxer> const& demuxer, Track const& track, NonnullOwnPtr<AudioDecoder>&& decoder, NonnullOwnPtr<Audio::Converter>&& converter)
     : m_main_thread_event_loop(Core::EventLoop::current())
     , m_demuxer(demuxer)
     , m_track(track)
     , m_decoder(move(decoder))
+    , m_converter(move(converter))
 {
 }
 
@@ -72,6 +88,23 @@ void AudioDataProvider::ThreadData::set_error_handler(ErrorHandler&& handler)
 {
     auto locker = take_lock();
     m_error_handler = move(handler);
+    m_wait_condition.broadcast();
+}
+
+void AudioDataProvider::ThreadData::set_block_end_time_handler(BlockEndTimeHandler&& handler)
+{
+    m_frame_end_time_handler = move(handler);
+}
+
+void AudioDataProvider::ThreadData::start()
+{
+    m_start = true;
+    m_wait_condition.broadcast();
+}
+
+void AudioDataProvider::ThreadData::exit()
+{
+    m_exit = true;
     m_wait_condition.broadcast();
 }
 
@@ -85,12 +118,6 @@ AudioBlock AudioDataProvider::retrieve_block()
     return result;
 }
 
-void AudioDataProvider::ThreadData::exit()
-{
-    m_exit = true;
-    m_wait_condition.broadcast();
-}
-
 void AudioDataProvider::ThreadData::seek(AK::Duration timestamp, SeekCompletionHandler&& completion_handler)
 {
     auto locker = take_lock();
@@ -98,11 +125,36 @@ void AudioDataProvider::ThreadData::seek(AK::Duration timestamp, SeekCompletionH
     m_seek_id++;
     m_seek_timestamp = timestamp;
     m_wait_condition.broadcast();
+    dbgln("{}: seek to {}", m_track.identifier(), timestamp);
+}
+
+void AudioDataProvider::ThreadData::wait_for_start()
+{
+    auto locker = take_lock();
+    while (!m_start)
+        m_wait_condition.wait();
 }
 
 bool AudioDataProvider::ThreadData::should_thread_exit() const
 {
     return m_exit;
+}
+
+void AudioDataProvider::ThreadData::dispatch_block_end_time(AudioBlock const& block)
+{
+    auto end_time = block.end_timestamp();
+    m_main_thread_event_loop.deferred_invoke([self = NonnullRefPtr(*this), end_time] {
+        if (self->m_frame_end_time_handler)
+            self->m_frame_end_time_handler(end_time);
+    });
+}
+
+void AudioDataProvider::ThreadData::queue_block(AudioBlock&& block)
+{
+    VERIFY(!block.is_empty());
+    dispatch_block_end_time(block);
+    m_queue.enqueue(move(block));
+    VERIFY(!m_queue.tail().is_empty());
 }
 
 void AudioDataProvider::ThreadData::flush_decoder()
@@ -114,8 +166,16 @@ void AudioDataProvider::ThreadData::flush_decoder()
 DecoderErrorOr<void> AudioDataProvider::ThreadData::retrieve_next_block(AudioBlock& block)
 {
     TRY(m_decoder->write_next_block(block));
-    if (block.timestamp_in_samples() < m_last_sample)
+    dbgln("{}: got block @ {}", m_track.identifier(), block.timestamp());
+
+    auto convert_result = m_converter->convert(block);
+    if (convert_result.is_error())
+        return DecoderError::format(DecoderErrorCategory::NotImplemented, "Sample specification conversion failed: {}", convert_result.error().string_literal());
+
+    if (block.timestamp_in_samples() < m_last_sample){
+        dbgln("  pushed block forward by {} samples", m_last_sample - block.timestamp_in_samples());
         block.set_timestamp_in_samples(m_last_sample);
+    }
     m_last_sample = block.timestamp_in_samples() + static_cast<i64>(block.sample_count());
     return {};
 }
@@ -142,6 +202,7 @@ void AudioDataProvider::ThreadData::resolve_seek(u32 seek_id)
         auto handler = move(self->m_seek_completion_handler);
         if (handler)
             handler();
+        dbgln("{}: seek complete", self->m_track.identifier());
     });
 }
 
@@ -159,7 +220,8 @@ bool AudioDataProvider::ThreadData::handle_seek()
 
         process_seek_on_main_thread(seek_id,
             [self = NonnullRefPtr(*this), error = move(error)] mutable {
-                self->m_error_handler(move(error));
+                if (self->m_error_handler)
+                    self->m_error_handler(move(error));
                 self->m_seek_completion_handler = nullptr;
             });
     };
@@ -225,9 +287,9 @@ bool AudioDataProvider::ThreadData::handle_seek()
                     m_queue.clear();
 
                     if (!last_block.is_empty())
-                        m_queue.enqueue(move(last_block));
+                        queue_block(move(last_block));
 
-                    m_queue.enqueue(move(current_block));
+                    queue_block(move(current_block));
 
                     resolve_seek(seek_id);
                     return true;
@@ -249,10 +311,9 @@ void AudioDataProvider::ThreadData::push_data_and_decode_a_block()
         {
             auto locker = take_lock();
             m_is_in_error_state = true;
-            while (!m_error_handler)
-                m_wait_condition.wait();
             m_main_thread_event_loop.deferred_invoke([self = NonnullRefPtr(*this), error = move(error)] mutable {
-                self->m_error_handler(move(error));
+                if (self->m_error_handler)
+                    self->m_error_handler(move(error));
             });
         }
 
@@ -306,20 +367,18 @@ void AudioDataProvider::ThreadData::push_data_and_decode_a_block()
         }
 
         auto block = AudioBlock();
-        auto timestamp_result = retrieve_next_block(block);
-        if (timestamp_result.is_error()) {
-            if (timestamp_result.error().category() == DecoderErrorCategory::NeedsMoreInput)
+        auto block_result = retrieve_next_block(block);
+        if (block_result.is_error()) {
+            if (block_result.error().category() == DecoderErrorCategory::NeedsMoreInput)
                 break;
-            set_error_and_wait_for_seek(timestamp_result.release_error());
+            set_error_and_wait_for_seek(block_result.release_error());
             break;
         }
 
         // FIXME: Specify trailing samples in the demuxer, and drop them here or in the audio decoder implementation.
 
         auto locker = take_lock();
-        VERIFY(!block.is_empty());
-        m_queue.enqueue(move(block));
-        VERIFY(!m_queue.tail().is_empty());
+        queue_block(move(block));
     }
 }
 

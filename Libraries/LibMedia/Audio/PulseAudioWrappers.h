@@ -12,6 +12,8 @@
 #include <AK/Error.h>
 #include <AK/NonnullRefPtr.h>
 #include <AK/Time.h>
+#include <LibMedia/Audio/ChannelMap.h>
+#include <LibMedia/Audio/SampleSpecification.h>
 #include <LibMedia/Export.h>
 #include <pulse/pulseaudio.h>
 
@@ -64,7 +66,7 @@ public:
     bool connection_is_good();
     PulseAudioErrorCode get_last_error();
 
-    ErrorOr<NonnullRefPtr<PulseAudioStream>> create_stream(OutputState initial_state, u32 sample_rate, u8 channels, u32 target_latency_ms, PulseAudioDataRequestCallback write_callback);
+    ErrorOr<NonnullRefPtr<PulseAudioStream>> create_stream(OutputState, Audio::SampleSpecification, u32 target_latency_ms, PulseAudioDataRequestCallback);
 
 private:
     friend class PulseAudioStream;
@@ -180,5 +182,8 @@ enum class PulseAudioErrorCode {
 };
 
 StringView pulse_audio_error_to_string(PulseAudioErrorCode code);
+
+ErrorOr<Audio::ChannelMap> pulse_audio_channel_map_to_channel_map(pa_channel_map const&);
+ErrorOr<pa_channel_map> channel_map_to_pulse_audio_channel_map(Audio::ChannelMap const&);
 
 }

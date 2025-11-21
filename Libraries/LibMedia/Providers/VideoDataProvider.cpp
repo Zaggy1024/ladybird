@@ -27,6 +27,7 @@ DecoderErrorOr<NonnullRefPtr<VideoDataProvider>> VideoDataProvider::try_create(N
     auto provider = DECODER_TRY_ALLOC(try_make_ref_counted<VideoDataProvider>(thread_data));
 
     auto thread = DECODER_TRY_ALLOC(Threading::Thread::try_create([thread_data]() -> int {
+        thread_data->wait_for_start();
         while (!thread_data->should_thread_exit()) {
             thread_data->handle_seek();
             thread_data->push_data_and_decode_some_frames();
@@ -60,6 +61,16 @@ void VideoDataProvider::set_error_handler(ErrorHandler&& handler)
     m_thread_data->set_error_handler(move(handler));
 }
 
+void VideoDataProvider::set_frame_end_time_handler(FrameEndTimeHandler&& handler)
+{
+    m_thread_data->set_frame_end_time_handler(move(handler));
+}
+
+void VideoDataProvider::start()
+{
+    m_thread_data->start();
+}
+
 TimedImage VideoDataProvider::retrieve_frame()
 {
     auto locker = m_thread_data->take_lock();
@@ -88,8 +99,17 @@ VideoDataProvider::ThreadData::~ThreadData() = default;
 
 void VideoDataProvider::ThreadData::set_error_handler(ErrorHandler&& handler)
 {
-    auto locker = take_lock();
     m_error_handler = move(handler);
+}
+
+void VideoDataProvider::ThreadData::set_frame_end_time_handler(FrameEndTimeHandler&& handler)
+{
+    m_frame_end_time_handler = move(handler);
+}
+
+void VideoDataProvider::ThreadData::start()
+{
+    m_start = true;
     m_wait_condition.broadcast();
 }
 
@@ -119,9 +139,25 @@ void VideoDataProvider::ThreadData::seek(AK::Duration timestamp, SeekMode seek_m
     m_wait_condition.broadcast();
 }
 
+void VideoDataProvider::ThreadData::wait_for_start()
+{
+    auto locker = take_lock();
+    while (!m_start)
+        m_wait_condition.wait();
+}
+
 bool VideoDataProvider::ThreadData::should_thread_exit() const
 {
     return m_exit;
+}
+
+void VideoDataProvider::ThreadData::dispatch_frame_end_time(CodedFrame const& frame)
+{
+    auto end_time = frame.timestamp() + frame.duration();
+    m_main_thread_event_loop.deferred_invoke([self = NonnullRefPtr(*this), end_time] {
+        if (self->m_frame_end_time_handler)
+            self->m_frame_end_time_handler(end_time);
+    });
 }
 
 void VideoDataProvider::ThreadData::set_cicp_values(VideoFrame& frame)
@@ -199,7 +235,8 @@ bool VideoDataProvider::ThreadData::handle_seek()
         }
         process_seek_on_main_thread(seek_id,
             [self = NonnullRefPtr(*this), error = move(error)] mutable {
-                self->m_error_handler(move(error));
+                if (self->m_error_handler)
+                    self->m_error_handler(move(error));
                 self->m_seek_completion_handler = nullptr;
             });
     };
@@ -261,7 +298,7 @@ bool VideoDataProvider::ThreadData::handle_seek()
             if (coded_frame_result.is_error()) {
                 if (coded_frame_result.error().category() == DecoderErrorCategory::EndOfStream) {
                     if (mode == SeekMode::FastAfter) {
-                        // If we're fast seeking after the provided timestamp and reach the end of the stream, that means we
+                        // If we're fast seeking after the provided timestamp and reach the end of the stream, that means we have
                         // nothing to display. Restart the seek as an accurate seek.
                         auto locker = take_lock();
                         seek_id = ++m_seek_id;
@@ -276,6 +313,7 @@ bool VideoDataProvider::ThreadData::handle_seek()
                 }
             } else {
                 auto coded_frame = coded_frame_result.release_value();
+                dispatch_frame_end_time(coded_frame);
 
                 if (!found_desired_keyframe)
                     found_desired_keyframe = is_desired_coded_frame(coded_frame);
@@ -283,7 +321,7 @@ bool VideoDataProvider::ThreadData::handle_seek()
                 if (!found_desired_keyframe)
                     continue;
 
-                auto decode_result = m_decoder->receive_coded_data(coded_frame.timestamp(), coded_frame.data());
+                auto decode_result = m_decoder->receive_coded_data(coded_frame.timestamp(), coded_frame.duration(), coded_frame.data());
                 if (decode_result.is_error()) {
                     handle_error(decode_result.release_error());
                     return true;
@@ -344,10 +382,9 @@ void VideoDataProvider::ThreadData::push_data_and_decode_some_frames()
         {
             auto locker = take_lock();
             m_is_in_error_state = true;
-            while (!m_error_handler)
-                m_wait_condition.wait();
             m_main_thread_event_loop.deferred_invoke([self = NonnullRefPtr(*this), error = move(error)] mutable {
-                self->m_error_handler(move(error));
+                if (self->m_error_handler)
+                    self->m_error_handler(move(error));
             });
         }
 
@@ -374,7 +411,9 @@ void VideoDataProvider::ThreadData::push_data_and_decode_some_frames()
         }
     } else {
         auto coded_frame = sample_result.release_value();
-        auto decode_result = m_decoder->receive_coded_data(coded_frame.timestamp(), coded_frame.data());
+        dispatch_frame_end_time(coded_frame);
+
+        auto decode_result = m_decoder->receive_coded_data(coded_frame.timestamp(), coded_frame.duration(), coded_frame.data());
         if (decode_result.is_error()) {
             set_error_and_wait_for_seek(decode_result.release_error());
             return;

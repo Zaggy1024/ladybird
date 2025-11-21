@@ -34,6 +34,7 @@ public:
     using ImageQueue = Queue<TimedImage, QUEUE_CAPACITY>;
 
     using ErrorHandler = Function<void(DecoderError&&)>;
+    using FrameEndTimeHandler = Function<void(AK::Duration)>;
     using SeekCompletionHandler = Function<void(AK::Duration)>;
 
     static DecoderErrorOr<NonnullRefPtr<VideoDataProvider>> try_create(NonnullRefPtr<MutexedDemuxer> const&, Track const&, RefPtr<MediaTimeProvider> const& = nullptr);
@@ -43,6 +44,9 @@ public:
     ~VideoDataProvider();
 
     void set_error_handler(ErrorHandler&&);
+    void set_frame_end_time_handler(FrameEndTimeHandler&&);
+
+    void start();
 
     TimedImage retrieve_frame();
 
@@ -55,7 +59,9 @@ private:
         ~ThreadData();
 
         void set_error_handler(ErrorHandler&&);
+        void set_frame_end_time_handler(FrameEndTimeHandler&&);
 
+        void start();
         void exit();
 
         ImageQueue& queue();
@@ -63,7 +69,9 @@ private:
 
         void seek(AK::Duration timestamp, SeekMode, SeekCompletionHandler&&);
 
+        void wait_for_start();
         bool should_thread_exit() const;
+        void dispatch_frame_end_time(CodedFrame const&);
         void set_cicp_values(VideoFrame&);
         void queue_frame(TimedImage&&);
         bool handle_seek();
@@ -80,6 +88,7 @@ private:
 
         Threading::Mutex m_mutex;
         Threading::ConditionVariable m_wait_condition { m_mutex };
+        Atomic<bool> m_start { false };
         Atomic<bool> m_exit { false };
 
         NonnullRefPtr<MutexedDemuxer> m_demuxer;
@@ -90,6 +99,7 @@ private:
 
         size_t m_queue_max_size { 4 };
         ImageQueue m_queue;
+        FrameEndTimeHandler m_frame_end_time_handler;
         ErrorHandler m_error_handler;
         bool m_is_in_error_state { false };
 

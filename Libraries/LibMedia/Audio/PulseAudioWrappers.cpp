@@ -8,6 +8,7 @@
 
 #include <AK/WeakPtr.h>
 #include <LibThreading/Mutex.h>
+#include <pulse/channelmap.h>
 
 namespace Audio {
 
@@ -171,31 +172,31 @@ PulseAudioErrorCode PulseAudioContext::get_last_error()
     },                                                                          \
         (stream)
 
-ErrorOr<NonnullRefPtr<PulseAudioStream>> PulseAudioContext::create_stream(OutputState initial_state, u32 sample_rate, u8 channels, u32 target_latency_ms, PulseAudioDataRequestCallback write_callback)
+ErrorOr<NonnullRefPtr<PulseAudioStream>> PulseAudioContext::create_stream(OutputState initial_state, Audio::SampleSpecification sample_specification, u32 target_latency_ms, PulseAudioDataRequestCallback write_callback)
 {
     auto locker = main_loop_locker();
 
     VERIFY(get_connection_state() == PulseAudioContextState::Ready);
-    pa_sample_spec sample_specification {
+    pa_sample_spec pa_sample_specification {
         // FIXME: Support more audio sample types.
         __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ ? PA_SAMPLE_FLOAT32LE : PA_SAMPLE_FLOAT32BE,
-        sample_rate,
-        channels,
+        sample_specification.sample_rate(),
+        sample_specification.channel_map().channel_count(),
     };
 
     // Check the sample specification and channel map here. These are also checked by stream_new(),
     // but we can return a more accurate error if we check beforehand.
-    if (pa_sample_spec_valid(&sample_specification) == 0)
+    if (pa_sample_spec_valid(&pa_sample_specification) == 0)
         return Error::from_string_literal("PulseAudio sample specification is invalid");
-    pa_channel_map channel_map;
-    if (pa_channel_map_init_auto(&channel_map, sample_specification.channels, PA_CHANNEL_MAP_DEFAULT) == 0) {
-        warnln("Getting default PulseAudio channel map failed with error: {}", pulse_audio_error_to_string(get_last_error()));
-        return Error::from_string_literal("Failed to get default PulseAudio channel map");
+    pa_channel_map pa_channel_map = TRY(channel_map_to_pulse_audio_channel_map(sample_specification.channel_map()));
+    if (!pa_channel_map_valid(&pa_channel_map)) {
+        warnln("Channel map is incompatible with PulseAudio: {}", sample_specification.channel_map());
+        return Error::from_string_literal("Channel map is incompatible with PulseAudio");
     }
 
     // Create the stream object and set a callback to signal ourselves to wake when the stream changes states,
     // allowing us to wait synchronously for it to become Ready or Failed.
-    auto* stream = pa_stream_new_with_proplist(m_context, "Audio Stream", &sample_specification, &channel_map, nullptr);
+    auto* stream = pa_stream_new_with_proplist(m_context, "Audio Stream", &pa_sample_specification, &pa_channel_map, nullptr);
     if (stream == nullptr) {
         warnln("Instantiating PulseAudio stream failed with error: {}", pulse_audio_error_to_string(get_last_error()));
         return Error::from_string_literal("Failed to create PulseAudio stream");
@@ -222,7 +223,7 @@ ErrorOr<NonnullRefPtr<PulseAudioStream>> PulseAudioContext::create_stream(Output
     pa_buffer_attr buffer_attributes;
     buffer_attributes.maxlength = -1;
     buffer_attributes.prebuf = -1;
-    buffer_attributes.tlength = target_latency_ms * sample_rate / 1000;
+    buffer_attributes.tlength = target_latency_ms * sample_specification.sample_rate() / 1000;
     buffer_attributes.minreq = buffer_attributes.tlength / 4;
     buffer_attributes.fragsize = buffer_attributes.minreq;
     auto flags = static_cast<pa_stream_flags>(PA_STREAM_AUTO_TIMING_UPDATE | PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_ADJUST_LATENCY | PA_STREAM_RELATIVE_VOLUME);
@@ -499,6 +500,87 @@ ErrorOr<void> PulseAudioStream::set_volume(double volume)
 
     auto* operation = pa_context_set_sink_input_volume(m_context->m_context, index, &per_channel_volumes, STREAM_SIGNAL_CALLBACK(this));
     return wait_for_operation(operation, "Failed to set PulseAudio stream volume"sv);
+}
+
+#define ENUMERATE_CHANNEL_POSITIONS(C)                                               \
+    C(Audio::Channel::FrontLeft, PA_CHANNEL_POSITION_FRONT_LEFT)                     \
+    C(Audio::Channel::FrontRight, PA_CHANNEL_POSITION_FRONT_RIGHT)                   \
+    C(Audio::Channel::FrontCenter, PA_CHANNEL_POSITION_FRONT_CENTER)                 \
+    C(Audio::Channel::LowFrequency, PA_CHANNEL_POSITION_LFE)                         \
+    C(Audio::Channel::BackLeft, PA_CHANNEL_POSITION_REAR_LEFT)                       \
+    C(Audio::Channel::BackRight, PA_CHANNEL_POSITION_REAR_RIGHT)                     \
+    C(Audio::Channel::FrontLeftOfCenter, PA_CHANNEL_POSITION_FRONT_LEFT_OF_CENTER)   \
+    C(Audio::Channel::FrontRightOfCenter, PA_CHANNEL_POSITION_FRONT_RIGHT_OF_CENTER) \
+    C(Audio::Channel::BackCenter, PA_CHANNEL_POSITION_REAR_CENTER)                   \
+    C(Audio::Channel::SideLeft, PA_CHANNEL_POSITION_SIDE_LEFT)                       \
+    C(Audio::Channel::SideRight, PA_CHANNEL_POSITION_SIDE_RIGHT)                     \
+    C(Audio::Channel::TopCenter, PA_CHANNEL_POSITION_TOP_CENTER)                     \
+    C(Audio::Channel::TopFrontLeft, PA_CHANNEL_POSITION_TOP_FRONT_LEFT)              \
+    C(Audio::Channel::TopFrontCenter, PA_CHANNEL_POSITION_TOP_FRONT_CENTER)          \
+    C(Audio::Channel::TopFrontRight, PA_CHANNEL_POSITION_TOP_FRONT_RIGHT)            \
+    C(Audio::Channel::TopBackLeft, PA_CHANNEL_POSITION_TOP_REAR_LEFT)                \
+    C(Audio::Channel::TopBackCenter, PA_CHANNEL_POSITION_TOP_REAR_CENTER)            \
+    C(Audio::Channel::TopBackRight, PA_CHANNEL_POSITION_TOP_REAR_RIGHT)              \
+    C(Audio::Channel::WideLeft, PA_CHANNEL_POSITION_AUX0)                            \
+    C(Audio::Channel::WideRight, PA_CHANNEL_POSITION_AUX1)                           \
+    C(Audio::Channel::DirectLeft, PA_CHANNEL_POSITION_AUX2)                          \
+    C(Audio::Channel::DirectRight, PA_CHANNEL_POSITION_AUX3)
+
+ErrorOr<Audio::ChannelMap> pulse_audio_channel_map_to_channel_map(pa_channel_map const& channel_map)
+{
+    if (channel_map.channels <= 0)
+        return Error::from_string_literal("PulseAudio channel map had no channels");
+    if (static_cast<size_t>(channel_map.channels) > Audio::ChannelMap::capacity())
+        return Error::from_string_literal("PulseAudio channel map had too many channels");
+    Vector<Audio::Channel, Audio::ChannelMap::capacity()> channels;
+    channels.resize(channel_map.channels);
+
+#define PA_CHANNEL_POSITION_TO_AUDIO_CHANNEL(audio_channel, pa_channel_position) \
+    case pa_channel_position:                                                    \
+        return audio_channel;
+
+    for (int i = 0; i < channel_map.channels; i++) {
+        auto channel = [&] {
+            switch (channel_map.map[i]) {
+                ENUMERATE_CHANNEL_POSITIONS(PA_CHANNEL_POSITION_TO_AUDIO_CHANNEL);
+            default:
+                return Audio::Channel::Unknown;
+            }
+        }();
+        channels[i] = channel;
+    }
+
+    return Audio::ChannelMap(channels);
+}
+
+ErrorOr<pa_channel_map> channel_map_to_pulse_audio_channel_map(Audio::ChannelMap const& channel_map)
+{
+    static_assert(sizeof(pa_channel_map::map) >= PA_CHANNELS_MAX * sizeof(*pa_channel_map::map));
+    if (static_cast<size_t>(channel_map.channel_count()) > PA_CHANNELS_MAX)
+        return Error::from_string_literal("PulseAudio channel map had too many channels");
+
+    pa_channel_map map;
+    map.channels = channel_map.channel_count();
+
+#define AUDIO_CHANNEL_TO_PA_CHANNEL_POSITION(audio_channel, pa_channel_position) \
+    case audio_channel:                                                          \
+        return pa_channel_position;
+
+    u32 i = 0;
+    while (i < channel_map.channel_count()) {
+        auto channel = [&] {
+            switch (channel_map.channel_at(i)) {
+                ENUMERATE_CHANNEL_POSITIONS(AUDIO_CHANNEL_TO_PA_CHANNEL_POSITION);
+            default:
+                return PA_CHANNEL_POSITION_INVALID;
+            }
+        }();
+        map.map[i++] = channel;
+    }
+    while (i < PA_CHANNELS_MAX)
+        map.map[i++] = PA_CHANNEL_POSITION_INVALID;
+
+    return map;
 }
 
 }

@@ -417,6 +417,9 @@ void MediaPaintable::set_current_time(HTML::HTMLMediaElement& media_element, CSS
     auto x_percentage = static_cast<double>(x_offset) / static_cast<double>(timeline_rect.width());
     auto position = x_percentage * media_element.duration();
 
+    if (isnan(position))
+        return;
+
     if (position != media_element.layout_display_time({}))
         media_element.set_current_time(position);
 

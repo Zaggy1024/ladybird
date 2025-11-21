@@ -12,6 +12,7 @@
 #include <AK/Queue.h>
 #include <AK/Time.h>
 #include <LibCore/Forward.h>
+#include <LibMedia/Audio/Converter.h>
 #include <LibMedia/AudioBlock.h>
 #include <LibMedia/DecoderError.h>
 #include <LibMedia/Export.h>
@@ -28,10 +29,11 @@ class MEDIA_API AudioDataProvider : public AtomicRefCounted<AudioDataProvider> {
     class ThreadData;
 
 public:
-    static constexpr size_t QUEUE_CAPACITY = 16;
+    static constexpr size_t QUEUE_CAPACITY = 128;
     using AudioQueue = Queue<AudioBlock, QUEUE_CAPACITY>;
 
     using ErrorHandler = Function<void(DecoderError&&)>;
+    using BlockEndTimeHandler = Function<void(AK::Duration)>;
     using SeekCompletionHandler = Function<void()>;
 
     static DecoderErrorOr<NonnullRefPtr<AudioDataProvider>> try_create(NonnullRefPtr<MutexedDemuxer> const& demuxer, Track const& track);
@@ -39,6 +41,9 @@ public:
     ~AudioDataProvider();
 
     void set_error_handler(ErrorHandler&&);
+    void set_block_end_time_handler(BlockEndTimeHandler&&);
+
+    void start();
 
     AudioBlock retrieve_block();
 
@@ -47,12 +52,19 @@ public:
 private:
     class ThreadData final : public AtomicRefCounted<ThreadData> {
     public:
-        ThreadData(NonnullRefPtr<MutexedDemuxer> const&, Track const&, NonnullOwnPtr<AudioDecoder>&&);
+        ThreadData(NonnullRefPtr<MutexedDemuxer> const&, Track const&, NonnullOwnPtr<AudioDecoder>&&, NonnullOwnPtr<Audio::Converter>&&);
         ~ThreadData();
 
         void set_error_handler(ErrorHandler&&);
+        void set_block_end_time_handler(BlockEndTimeHandler&&);
 
+        void start();
+        void exit();
+
+        void wait_for_start();
         bool should_thread_exit() const;
+        void dispatch_block_end_time(AudioBlock const&);
+        void queue_block(AudioBlock&&);
         void flush_decoder();
         DecoderErrorOr<void> retrieve_next_block(AudioBlock&);
         bool handle_seek();
@@ -61,9 +73,6 @@ private:
         void resolve_seek(u32 seek_id);
         void push_data_and_decode_a_block();
 
-        void exit();
-        void set_stopped(bool);
-        bool is_stopped() const;
         void seek(AK::Duration timestamp, SeekCompletionHandler&&);
 
         [[nodiscard]] Threading::MutexLocker take_lock() { return Threading::MutexLocker(m_mutex); }
@@ -77,15 +86,18 @@ private:
 
         Threading::Mutex m_mutex;
         Threading::ConditionVariable m_wait_condition { m_mutex };
+        Atomic<bool> m_start { false };
         Atomic<bool> m_exit { false };
 
         NonnullRefPtr<MutexedDemuxer> m_demuxer;
         Track m_track;
         NonnullOwnPtr<AudioDecoder> m_decoder;
+        NonnullOwnPtr<Audio::Converter> m_converter;
         i64 m_last_sample { NumericLimits<i64>::min() };
 
         size_t m_queue_max_size { 8 };
         AudioQueue m_queue;
+        BlockEndTimeHandler m_frame_end_time_handler;
         ErrorHandler m_error_handler;
         bool m_is_in_error_state { false };
 

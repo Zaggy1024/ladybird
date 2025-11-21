@@ -17,7 +17,7 @@ namespace Audio {
 class PlaybackStreamPulseAudio final
     : public PlaybackStream {
 public:
-    static ErrorOr<NonnullRefPtr<PlaybackStream>> create(OutputState initial_state, u32 sample_rate, u8 channels, u32 target_latency_ms, AudioDataRequestCallback&& data_request_callback);
+    static ErrorOr<NonnullRefPtr<PlaybackStream>> create(OutputState, Audio::SampleSpecification, u32 target_latency_ms, AudioDataRequestCallback&&);
 
     virtual void set_underrun_callback(Function<void()>) override;
 
