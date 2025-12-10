@@ -14,8 +14,10 @@
 #include <LibGfx/ColorSpace.h>
 #include <LibGfx/Forward.h>
 #include <LibGfx/Rect.h>
+#include <LibGfx/Subsampling.h>
 
 class SkImage;
+class GrRecordingContext;
 
 namespace Gfx {
 
@@ -50,6 +52,7 @@ public:
     static NonnullRefPtr<ImmutableBitmap> create(NonnullRefPtr<Bitmap> bitmap, ColorSpace color_space = {});
     static NonnullRefPtr<ImmutableBitmap> create(NonnullRefPtr<Bitmap> bitmap, AlphaType, ColorSpace color_space = {});
     static NonnullRefPtr<ImmutableBitmap> create_snapshot_from_painting_surface(NonnullRefPtr<PaintingSurface>);
+    static ErrorOr<NonnullRefPtr<ImmutableBitmap>> create_yuv(GrRecordingContext&, int width, int height, u8 bit_depth, Media::CodingIndependentCodePoints, Subsampling, ReadonlyBytes plane_y, ReadonlyBytes plane_u, ReadonlyBytes plane_v);
 
     ~ImmutableBitmap();
 
