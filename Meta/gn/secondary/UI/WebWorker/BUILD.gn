@@ -1,5 +1,5 @@
 executable("WebWorker") {
-  configs += [ "//Ladybird:ladybird_config" ]
+  configs += [ "//UI:ladybird_config" ]
   include_dirs = [
     "//Userland/Libraries",
     "//Userland/Services",
@@ -22,9 +22,9 @@ executable("WebWorker") {
     "//Userland/Libraries/LibWebView",
   ]
   sources = [
-    "//Ladybird/FontPlugin.cpp",
-    "//Ladybird/HelperProcess.cpp",
-    "//Ladybird/Utilities.cpp",
+    "//UI/FontPlugin.cpp",
+    "//UI/HelperProcess.cpp",
+    "//UI/Utilities.cpp",
     "//Userland/Services/WebWorker/ConnectionFromClient.cpp",
     "//Userland/Services/WebWorker/DedicatedWorkerHost.cpp",
     "//Userland/Services/WebWorker/PageHost.cpp",

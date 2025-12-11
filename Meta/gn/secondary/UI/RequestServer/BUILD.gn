@@ -1,5 +1,5 @@
 executable("RequestServer") {
-  configs += [ "//Ladybird:ladybird_config" ]
+  configs += [ "//UI:ladybird_config" ]
   include_dirs = [
     "//Userland/Libraries",
     "//Userland/Services",

@@ -1,14 +1,14 @@
-import("//Ladybird/link_qt.gni")
+import("//UI/link_qt.gni")
 
 executable("WebDriver") {
-  configs += [ "//Ladybird:ladybird_config" ]
+  configs += [ "//UI:ladybird_config" ]
   include_dirs = [
+    "//UI",
     "//Userland/Services",
-    "//Ladybird",
   ]
   data_deps = [
-    "//Ladybird:headless-browser",
-    "//Ladybird:ladybird_executable",
+    "//UI:headless-browser",
+    "//UI:ladybird_executable",
   ]
   deps = [
     "//AK",
@@ -25,7 +25,7 @@ executable("WebDriver") {
     "//Userland/Libraries/LibWebView:WebDriverServerEndpoint",
   ]
   sources = [
-    "//Ladybird/Utilities.cpp",
+    "//UI/Utilities.cpp",
     "//Userland/Services/WebDriver/Client.cpp",
     "//Userland/Services/WebDriver/Session.cpp",
     "//Userland/Services/WebDriver/WebContentConnection.cpp",

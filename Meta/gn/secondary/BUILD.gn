@@ -2,9 +2,9 @@ import("//Meta/gn/build/toolchain/compiler.gni")
 
 group("default") {
   deps = [
-    "//Ladybird",
     "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler",
     "//Tests",
+    "//UI",
     "//Userland/Libraries/LibWeb",
     "//Userland/Utilities:js",
   ]

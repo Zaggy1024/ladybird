@@ -1,10 +1,10 @@
-import("//Ladybird/compile_qt_resource_file.gni")
-import("//Ladybird/enable_appkit.gni")
-import("//Ladybird/enable_qt.gni")
-import("//Ladybird/link_qt.gni")
-import("//Ladybird/moc_qt_objects.gni")
+import("//UI/compile_qt_resource_file.gni")
+import("//UI/enable_appkit.gni")
+import("//UI/enable_qt.gni")
+import("//UI/link_qt.gni")
+import("//UI/moc_qt_objects.gni")
 
-group("Ladybird") {
+group("UI") {
   if (current_os == "mac") {
     deps = [ ":Ladybird.app" ]
   } else {
@@ -493,7 +493,7 @@ if (current_os != "mac") {
 
   action("ladybird_create_icon") {
     script = "//Meta/gn/build/invoke_process_with_args.py"
-    icon_path = "//Ladybird/Icons/macos/app_icon.iconset"
+    icon_path = "//UI/Icons/macos/app_icon.iconset"
     sources = [
       "$icon_path/icon_128x128.png",
       "$icon_path/icon_128x128@2x.png",

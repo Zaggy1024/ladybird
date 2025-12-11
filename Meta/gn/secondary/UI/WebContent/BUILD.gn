@@ -1,10 +1,10 @@
-import("//Ladybird/enable_qt.gni")
-import("//Ladybird/link_qt.gni")
-import("//Ladybird/moc_qt_objects.gni")
+import("//UI/enable_qt.gni")
+import("//UI/link_qt.gni")
+import("//UI/moc_qt_objects.gni")
 import("//Meta/gn/build/libs/pulse/enable.gni")
 
 moc_qt_objects("generate_moc") {
-  sources = [ "//Ladybird/Qt/EventLoopImplementationQtEventTarget.h" ]
+  sources = [ "//UI/Qt/EventLoopImplementationQtEventTarget.h" ]
 }
 
 link_qt("WebContent_qt") {
@@ -12,10 +12,10 @@ link_qt("WebContent_qt") {
 }
 
 executable("WebContent") {
-  configs += [ "//Ladybird:ladybird_config" ]
+  configs += [ "//UI:ladybird_config" ]
   include_dirs = [
+    "//UI",
     "//Userland/Services",
-    "//Ladybird",
   ]
   deps = [
     "//AK",
@@ -39,10 +39,10 @@ executable("WebContent") {
     "//Userland/Libraries/LibWebView:WebDriverServerEndpoint",
   ]
   sources = [
-    "//Ladybird/FontPlugin.cpp",
-    "//Ladybird/HelperProcess.cpp",
-    "//Ladybird/ImageCodecPlugin.cpp",
-    "//Ladybird/Utilities.cpp",
+    "//UI/FontPlugin.cpp",
+    "//UI/HelperProcess.cpp",
+    "//UI/ImageCodecPlugin.cpp",
+    "//UI/Utilities.cpp",
     "//Userland/Services/WebContent/BackingStoreManager.cpp",
     "//Userland/Services/WebContent/ConnectionFromClient.cpp",
     "//Userland/Services/WebContent/ConsoleGlobalEnvironmentExtensions.cpp",
@@ -57,9 +57,9 @@ executable("WebContent") {
     defines = [ "HAVE_QT" ]
     configs += [ ":WebContent_qt" ]
     sources += [
-      "//Ladybird/Qt/EventLoopImplementationQt.cpp",
-      "//Ladybird/Qt/EventLoopImplementationQtEventTarget.cpp",
-      "//Ladybird/Qt/StringUtils.cpp",
+      "//UI/Qt/EventLoopImplementationQt.cpp",
+      "//UI/Qt/EventLoopImplementationQtEventTarget.cpp",
+      "//UI/Qt/StringUtils.cpp",
     ]
 
     sources += get_target_outputs(":generate_moc")
