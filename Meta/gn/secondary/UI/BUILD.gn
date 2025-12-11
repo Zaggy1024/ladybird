@@ -45,8 +45,8 @@ link_qt("ladybird_qt_components") {
 config("ladybird_config") {
   include_dirs = [
     "//Userland",
-    "//Userland/Applications",
-    "//Userland/Services",
+    "//Applications",
+    "//Services",
   ]
 }
 
@@ -62,17 +62,17 @@ executable("ladybird_executable") {
   data_deps = ladybird_helper_processes
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibFileSystem",
-    "//Userland/Libraries/LibGfx",
-    "//Userland/Libraries/LibIPC",
-    "//Userland/Libraries/LibImageDecoderClient",
-    "//Userland/Libraries/LibJS",
-    "//Userland/Libraries/LibMain",
-    "//Userland/Libraries/LibRequests",
-    "//Userland/Libraries/LibURL",
-    "//Userland/Libraries/LibWeb",
-    "//Userland/Libraries/LibWebView",
+    "//Libraries/LibCore",
+    "//Libraries/LibFileSystem",
+    "//Libraries/LibGfx",
+    "//Libraries/LibIPC",
+    "//Libraries/LibImageDecoderClient",
+    "//Libraries/LibJS",
+    "//Libraries/LibMain",
+    "//Libraries/LibRequests",
+    "//Libraries/LibURL",
+    "//Libraries/LibWeb",
+    "//Libraries/LibWebView",
   ]
   sources = [
     "HelperProcess.cpp",
@@ -130,7 +130,7 @@ executable("ladybird_executable") {
       "AppKit/main.mm",
     ]
 
-    deps += [ "//Userland/Libraries/LibUnicode" ]
+    deps += [ "//Libraries/LibUnicode" ]
 
     cflags_objcc = [
       "-fobjc-arc",
@@ -150,7 +150,7 @@ executable("ladybird_executable") {
 
   if (current_os == "mac") {
     sources += [ "MachPortServer.cpp" ]
-    deps += [ "//Userland/Libraries/LibThreading" ]
+    deps += [ "//Libraries/LibThreading" ]
   } else {
     data_deps += [
       ":ladybird_copy_about_pages",
@@ -171,30 +171,30 @@ executable("ladybird_executable") {
 }
 
 executable("headless-browser") {
-  include_dirs = [ "//Userland/Services" ]
+  include_dirs = [ "//Services" ]
   configs += [ ":ladybird_config" ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibCrypto",
-    "//Userland/Libraries/LibDiff",
-    "//Userland/Libraries/LibFileSystem",
-    "//Userland/Libraries/LibGfx",
-    "//Userland/Libraries/LibHTTP",
-    "//Userland/Libraries/LibIPC",
-    "//Userland/Libraries/LibImageDecoderClient",
-    "//Userland/Libraries/LibJS",
-    "//Userland/Libraries/LibMain",
-    "//Userland/Libraries/LibRequests",
-    "//Userland/Libraries/LibTLS",
-    "//Userland/Libraries/LibURL",
-    "//Userland/Libraries/LibWeb",
-    "//Userland/Libraries/LibWebSocket",
-    "//Userland/Libraries/LibWebView",
+    "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
+    "//Libraries/LibDiff",
+    "//Libraries/LibFileSystem",
+    "//Libraries/LibGfx",
+    "//Libraries/LibHTTP",
+    "//Libraries/LibIPC",
+    "//Libraries/LibImageDecoderClient",
+    "//Libraries/LibJS",
+    "//Libraries/LibMain",
+    "//Libraries/LibRequests",
+    "//Libraries/LibTLS",
+    "//Libraries/LibURL",
+    "//Libraries/LibWeb",
+    "//Libraries/LibWebSocket",
+    "//Libraries/LibWebView",
   ]
   data_deps = ladybird_helper_processes
   sources = [
-    "//Userland/Utilities/headless-browser.cpp",
+    "//Utilities/headless-browser.cpp",
     "HelperProcess.cpp",
     "Utilities.cpp",
   ]
@@ -374,31 +374,31 @@ if (current_os != "mac") {
   bundle_data("ladybird_bundle_libs") {
     public_deps = [
       "//AK",
-      "//Userland/Libraries/LibCompress",
-      "//Userland/Libraries/LibCore",
-      "//Userland/Libraries/LibCrypto",
-      "//Userland/Libraries/LibDiff",
-      "//Userland/Libraries/LibFileSystem",
-      "//Userland/Libraries/LibGfx",
-      "//Userland/Libraries/LibHTTP",
-      "//Userland/Libraries/LibIDL",
-      "//Userland/Libraries/LibIPC",
-      "//Userland/Libraries/LibImageDecoderClient",
-      "//Userland/Libraries/LibJS",
-      "//Userland/Libraries/LibLine",
-      "//Userland/Libraries/LibMedia",
-      "//Userland/Libraries/LibRegex",
-      "//Userland/Libraries/LibRequests",
-      "//Userland/Libraries/LibSyntax",
-      "//Userland/Libraries/LibTLS",
-      "//Userland/Libraries/LibTextCodec",
-      "//Userland/Libraries/LibThreading",
-      "//Userland/Libraries/LibURL",
-      "//Userland/Libraries/LibWasm",
-      "//Userland/Libraries/LibWeb",
-      "//Userland/Libraries/LibWebSocket",
-      "//Userland/Libraries/LibWebView",
-      "//Userland/Libraries/LibXML",
+      "//Libraries/LibCompress",
+      "//Libraries/LibCore",
+      "//Libraries/LibCrypto",
+      "//Libraries/LibDiff",
+      "//Libraries/LibFileSystem",
+      "//Libraries/LibGfx",
+      "//Libraries/LibHTTP",
+      "//Libraries/LibIDL",
+      "//Libraries/LibIPC",
+      "//Libraries/LibImageDecoderClient",
+      "//Libraries/LibJS",
+      "//Libraries/LibLine",
+      "//Libraries/LibMedia",
+      "//Libraries/LibRegex",
+      "//Libraries/LibRequests",
+      "//Libraries/LibSyntax",
+      "//Libraries/LibTLS",
+      "//Libraries/LibTextCodec",
+      "//Libraries/LibThreading",
+      "//Libraries/LibURL",
+      "//Libraries/LibWasm",
+      "//Libraries/LibWeb",
+      "//Libraries/LibWebSocket",
+      "//Libraries/LibWebView",
+      "//Libraries/LibXML",
     ]
     sources = [
       "$root_out_dir/lib/liblagom-ak.dylib",

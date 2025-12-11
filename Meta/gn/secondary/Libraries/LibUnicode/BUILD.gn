@@ -1,6 +1,6 @@
 source_set("LibUnicode") {
   output_name = "unicode"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [
     "CharacterTypes.cpp",
     "Collator.cpp",

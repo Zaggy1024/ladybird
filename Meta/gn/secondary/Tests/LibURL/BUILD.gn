@@ -1,11 +1,11 @@
 import("//Tests/unittest.gni")
 
 unittest("TestURL") {
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [ "TestURL.cpp" ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibURL",
+    "//Libraries/LibURL",
   ]
 }
 

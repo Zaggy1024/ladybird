@@ -7,7 +7,7 @@ lagom_tool("BindingsGenerator") {
     "main.cpp",
   ]
   deps = [
-    "//Userland/Libraries/LibIDL",
-    "//Userland/Libraries/LibMain",
+    "//Libraries/LibIDL",
+    "//Libraries/LibMain",
   ]
 }

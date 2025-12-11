@@ -5,7 +5,7 @@ import("//Meta/gn/build/libs/vulkan/enable.gni")
 shared_library("minimal") {
   output_name = "core-minimal"
 
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
 
   sources = [
     "ArgsParser.cpp",
@@ -33,7 +33,7 @@ shared_library("minimal") {
 }
 
 source_set("sources") {
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   deps = [ "//AK" ]
   sources = [
     "AnonymousBuffer.cpp",
@@ -113,7 +113,7 @@ source_set("sources") {
 }
 
 source_set("filewatcher") {
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [ "FileWatcher.h" ]
   deps = [ "//AK" ]
   frameworks = []
@@ -132,7 +132,7 @@ source_set("filewatcher") {
 }
 
 source_set("timezonewatcher") {
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [ "TimeZoneWatcher.h" ]
   deps = [ "//AK" ]
   frameworks = []
@@ -152,7 +152,7 @@ source_set("timezonewatcher") {
 
 source_set("metal") {
   if (current_os == "mac") {
-    include_dirs = [ "//Userland/Libraries" ]
+    include_dirs = [ "//Libraries" ]
     deps = [ "//AK" ]
     sources = [
       "IOSurface.cpp",
@@ -167,7 +167,7 @@ source_set("metal") {
 
 source_set("vulkan") {
   if (enable_vulkan) {
-    include_dirs = [ "//Userland/Libraries" ]
+    include_dirs = [ "//Libraries" ]
     deps = [
       "//AK",
       "//Meta/gn/build/libs/vulkan",
@@ -199,8 +199,8 @@ shared_library("LibCore") {
     ":vulkan",
     "//Meta/gn/build/libs/crypt",
     "//Meta/gn/build/libs/pthread",
-    "//Userland/Libraries/LibURL",
-    "//Userland/Libraries/LibUnicode",
+    "//Libraries/LibURL",
+    "//Libraries/LibUnicode",
   ]
 
   public_deps = [ ":minimal" ]

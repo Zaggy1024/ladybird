@@ -1,13 +1,13 @@
 shared_library("LibIDL") {
   output_name = "idl"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [
     "IDLParser.cpp",
     "Types.cpp",
   ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore:minimal",
-    "//Userland/Libraries/LibFileSystem",
+    "//Libraries/LibCore:minimal",
+    "//Libraries/LibFileSystem",
   ]
 }

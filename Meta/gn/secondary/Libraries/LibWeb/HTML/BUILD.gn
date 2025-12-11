@@ -1,5 +1,5 @@
 source_set("HTML") {
-  configs += [ "//Userland/Libraries/LibWeb:configs" ]
+  configs += [ "//Libraries/LibWeb:configs" ]
   deps = [
     "Canvas",
     "CrossOrigin",
@@ -10,7 +10,7 @@ source_set("HTML") {
     "SyntaxHighlighter",
     "//Meta/gn/build/libs/skia",
     "//Meta/gn/build/libs/vulkan",
-    "//Userland/Libraries/LibWeb:all_generated",
+    "//Libraries/LibWeb:all_generated",
   ]
   sources = [
     "AbstractWorker.cpp",

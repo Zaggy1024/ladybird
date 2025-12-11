@@ -1,6 +1,6 @@
 shared_library("LibSyntax") {
   output_name = "syntax"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [
     "Document.cpp",
     "Highlighter.cpp",

@@ -1,8 +1,8 @@
 source_set("UIEvents") {
-  configs += [ "//Userland/Libraries/LibWeb:configs" ]
-  deps = [ "//Userland/Libraries/LibWeb:all_generated" ]
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
   include_dirs = [
-    "//Userland/",  # For LibGUI needing WindowServer types
+    "//",  # For LibGUI needing WindowServer types
   ]
   sources = [
     "CompositionEvent.cpp",

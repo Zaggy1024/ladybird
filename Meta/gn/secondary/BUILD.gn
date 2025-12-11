@@ -5,8 +5,8 @@ group("default") {
     "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler",
     "//Tests",
     "//UI",
-    "//Userland/Libraries/LibWeb",
-    "//Userland/Utilities:js",
+    "//Libraries/LibWeb",
+    "//Utilities:js",
   ]
   testonly = true
 }

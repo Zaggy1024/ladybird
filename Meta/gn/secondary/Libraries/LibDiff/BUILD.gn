@@ -1,5 +1,5 @@
 shared_library("LibDiff") {
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [
     "Applier.cpp",
     "Format.cpp",
@@ -8,7 +8,7 @@ shared_library("LibDiff") {
   ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
+    "//Libraries/LibCore",
   ]
   output_name = "diff"
 }

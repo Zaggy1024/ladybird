@@ -1,8 +1,8 @@
 source_set("SyntaxHighlighter") {
-  configs += [ "//Userland/Libraries/LibWeb:configs" ]
-  deps = [ "//Userland/Libraries/LibWeb:all_generated" ]
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
   include_dirs = [
-    "//Userland/",  # For LibSyntax needing LibGUI needing WindowServer types
+    "//",  # For LibSyntax needing LibGUI needing WindowServer types
   ]
   sources = [ "SyntaxHighlighter.cpp" ]
 }

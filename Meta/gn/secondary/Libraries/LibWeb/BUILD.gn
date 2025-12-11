@@ -39,7 +39,7 @@ idl_sources_targets = [
 
 compiled_action("WebWorkerClientEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Libraries/LibWeb/Worker/WebWorkerClient.ipc" ]
+  inputs = [ "//Libraries/LibWeb/Worker/WebWorkerClient.ipc" ]
   outputs = [ "$root_gen_dir/LibWeb/Worker/WebWorkerClientEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -50,7 +50,7 @@ compiled_action("WebWorkerClientEndpoint") {
 
 compiled_action("WebWorkerServerEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Libraries/LibWeb/Worker/WebWorkerServer.ipc" ]
+  inputs = [ "//Libraries/LibWeb/Worker/WebWorkerServer.ipc" ]
   outputs = [ "$root_gen_dir/LibWeb/Worker/WebWorkerServerEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -76,7 +76,7 @@ compiled_action("generate_window_or_worker_interfaces") {
     "-o",
     rebase_path("$target_gen_dir/Bindings", root_build_dir),
     "-b",
-    rebase_path("//Userland/Libraries/LibWeb", root_build_dir),
+    rebase_path("//Libraries/LibWeb", root_build_dir),
   ]
   foreach(idl, inputs) {
     args += [ rebase_path(idl, root_build_dir) ]
@@ -310,8 +310,8 @@ source_set("all_generated") {
 
 config("configs") {
   include_dirs = [
-    "//Userland/Libraries",
-    "//Userland/Services",  # FIXME: BackingStoreManager lives in WebContent
+    "//Libraries",
+    "//Services",  # FIXME: BackingStoreManager lives in WebContent
     "$target_gen_dir/..",
   ]
   configs = [ "//AK:ak_headers" ]
@@ -389,22 +389,22 @@ shared_library("LibWeb") {
            "//AK",
            "//Meta/gn/build/libs/skia",
            "//Meta/gn/build/libs/vulkan",
-           "//Userland/Libraries/LibCore",
-           "//Userland/Libraries/LibCrypto",
-           "//Userland/Libraries/LibGfx",
-           "//Userland/Libraries/LibHTTP",
-           "//Userland/Libraries/LibIDL",
-           "//Userland/Libraries/LibIPC",
-           "//Userland/Libraries/LibJS",
-           "//Userland/Libraries/LibMedia",
-           "//Userland/Libraries/LibRegex",
-           "//Userland/Libraries/LibRequests",
-           "//Userland/Libraries/LibSyntax",
-           "//Userland/Libraries/LibTLS",
-           "//Userland/Libraries/LibTextCodec",
-           "//Userland/Libraries/LibURL",
-           "//Userland/Libraries/LibUnicode",
-           "//Userland/Libraries/LibWasm",
-           "//Userland/Libraries/LibXML",
+           "//Libraries/LibCore",
+           "//Libraries/LibCrypto",
+           "//Libraries/LibGfx",
+           "//Libraries/LibHTTP",
+           "//Libraries/LibIDL",
+           "//Libraries/LibIPC",
+           "//Libraries/LibJS",
+           "//Libraries/LibMedia",
+           "//Libraries/LibRegex",
+           "//Libraries/LibRequests",
+           "//Libraries/LibSyntax",
+           "//Libraries/LibTLS",
+           "//Libraries/LibTextCodec",
+           "//Libraries/LibURL",
+           "//Libraries/LibUnicode",
+           "//Libraries/LibWasm",
+           "//Libraries/LibXML",
          ] + idl_sources_targets
 }

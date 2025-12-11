@@ -1,10 +1,10 @@
 source_set("CSS") {
-  configs += [ "//Userland/Libraries/LibWeb:configs" ]
+  configs += [ "//Libraries/LibWeb:configs" ]
   deps = [
     "Parser",
     "StyleValues",
     "SyntaxHighlighter",
-    "//Userland/Libraries/LibWeb:all_generated",
+    "//Libraries/LibWeb:all_generated",
   ]
   sources = [
     "Angle.cpp",

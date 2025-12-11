@@ -2,7 +2,7 @@ import("//Meta/gn/build/compiled_action.gni")
 
 compiled_action("ImageDecoderClientEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Services/ImageDecoder/ImageDecoderClient.ipc" ]
+  inputs = [ "//Services/ImageDecoder/ImageDecoderClient.ipc" ]
   outputs = [ "$root_gen_dir/ImageDecoder/ImageDecoderClientEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -13,7 +13,7 @@ compiled_action("ImageDecoderClientEndpoint") {
 
 compiled_action("ImageDecoderServerEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Services/ImageDecoder/ImageDecoderServer.ipc" ]
+  inputs = [ "//Services/ImageDecoder/ImageDecoderServer.ipc" ]
   outputs = [ "$root_gen_dir/ImageDecoder/ImageDecoderServerEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -25,17 +25,17 @@ compiled_action("ImageDecoderServerEndpoint") {
 shared_library("LibImageDecoderClient") {
   output_name = "imagedecoderclient"
   include_dirs = [
-    "//Userland/Libraries",
-    "//Userland/Services",
-    "//Userland/",
+    "//Libraries",
+    "//Services",
+    "//",
   ]
   deps = [
     ":ImageDecoderClientEndpoint",
     ":ImageDecoderServerEndpoint",
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibGfx",
-    "//Userland/Libraries/LibIPC",
+    "//Libraries/LibCore",
+    "//Libraries/LibGfx",
+    "//Libraries/LibIPC",
   ]
   sources = [ "Client.cpp" ]
   sources += get_target_outputs(":ImageDecoderClientEndpoint") +

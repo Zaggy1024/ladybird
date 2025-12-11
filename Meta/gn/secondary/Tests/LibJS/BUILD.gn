@@ -2,21 +2,21 @@ import("//Tests/unittest.gni")
 
 unittest("test-js") {
   use_js_main = true
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [ "test-js.cpp" ]
   deps = [
-    "//Userland/Libraries/LibFileSystem",
-    "//Userland/Libraries/LibJS",
+    "//Libraries/LibFileSystem",
+    "//Libraries/LibJS",
   ]
 }
 
 executable("test262-runner") {
   sources = [ "test262-runner.cpp" ]
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibJS",
+    "//Libraries/LibCore",
+    "//Libraries/LibJS",
   ]
 }
 

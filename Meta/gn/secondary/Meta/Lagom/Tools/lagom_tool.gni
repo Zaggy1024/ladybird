@@ -6,11 +6,11 @@ template("lagom_tool") {
     include_dirs = [
       "//",
       "$root_gen_dir",
-      "//Userland/Libraries",
+      "//Libraries",
     ]
     deps += [
-      "//Userland/Libraries/LibCore:minimal",
-      "//Userland/Libraries/LibFileSystem",
+      "//Libraries/LibCore:minimal",
+      "//Libraries/LibFileSystem",
     ]
   }
 }

@@ -1,9 +1,9 @@
 source_set("Painting") {
-  configs += [ "//Userland/Libraries/LibWeb:configs" ]
+  configs += [ "//Libraries/LibWeb:configs" ]
   deps = [
     "//Meta/gn/build/libs/skia",
     "//Meta/gn/build/libs/vulkan",
-    "//Userland/Libraries/LibWeb:all_generated",
+    "//Libraries/LibWeb:all_generated",
   ]
   sources = [
     "AudioPaintable.cpp",

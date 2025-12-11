@@ -42,7 +42,7 @@ if (enable_public_suffix_list_download) {
 
 compiled_action("WebContentClientEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Services/WebContent/WebContentClient.ipc" ]
+  inputs = [ "//Services/WebContent/WebContentClient.ipc" ]
   outputs = [ "$root_gen_dir/WebContent/WebContentClientEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -53,7 +53,7 @@ compiled_action("WebContentClientEndpoint") {
 
 compiled_action("WebContentServerEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Services/WebContent/WebContentServer.ipc" ]
+  inputs = [ "//Services/WebContent/WebContentServer.ipc" ]
   outputs = [ "$root_gen_dir/WebContent/WebContentServerEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -64,7 +64,7 @@ compiled_action("WebContentServerEndpoint") {
 
 compiled_action("WebDriverClientEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Services/WebContent/WebDriverClient.ipc" ]
+  inputs = [ "//Services/WebContent/WebDriverClient.ipc" ]
   outputs = [ "$root_gen_dir/WebContent/WebDriverClientEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -75,7 +75,7 @@ compiled_action("WebDriverClientEndpoint") {
 
 compiled_action("WebDriverServerEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Services/WebContent/WebDriverServer.ipc" ]
+  inputs = [ "//Services/WebContent/WebDriverServer.ipc" ]
   outputs = [ "$root_gen_dir/WebContent/WebDriverServerEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -86,7 +86,7 @@ compiled_action("WebDriverServerEndpoint") {
 
 compiled_action("UIProcessClientEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Libraries/LibWebView/UIProcessClient.ipc" ]
+  inputs = [ "//Libraries/LibWebView/UIProcessClient.ipc" ]
   outputs = [ "$root_gen_dir/LibWebView/UIProcessClientEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -97,7 +97,7 @@ compiled_action("UIProcessClientEndpoint") {
 
 compiled_action("UIProcessServerEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
-  inputs = [ "//Userland/Libraries/LibWebView/UIProcessServer.ipc" ]
+  inputs = [ "//Libraries/LibWebView/UIProcessServer.ipc" ]
   outputs = [ "$root_gen_dir/LibWebView/UIProcessServerEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
@@ -116,9 +116,9 @@ embed_as_string("generate_native_stylesheet_source") {
 shared_library("LibWebView") {
   output_name = "webview"
   include_dirs = [
-    "//Userland/Libraries",
-    "//Userland/Services",
-    "//Userland/",
+    "//Libraries",
+    "//Services",
+    "//",
     "$target_gen_dir/..",
   ]
   deps = [
@@ -131,17 +131,17 @@ shared_library("LibWebView") {
     ":generate_native_stylesheet_source",
     "//AK",
     "//Meta/gn/build/libs/sqlite3",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibFileSystem",
-    "//Userland/Libraries/LibGfx",
-    "//Userland/Libraries/LibIPC",
-    "//Userland/Libraries/LibImageDecoderClient",
-    "//Userland/Libraries/LibJS",
-    "//Userland/Libraries/LibRequests",
-    "//Userland/Libraries/LibSyntax",
-    "//Userland/Libraries/LibURL",
-    "//Userland/Libraries/LibUnicode",
-    "//Userland/Libraries/LibWeb",
+    "//Libraries/LibCore",
+    "//Libraries/LibFileSystem",
+    "//Libraries/LibGfx",
+    "//Libraries/LibIPC",
+    "//Libraries/LibImageDecoderClient",
+    "//Libraries/LibJS",
+    "//Libraries/LibRequests",
+    "//Libraries/LibSyntax",
+    "//Libraries/LibURL",
+    "//Libraries/LibUnicode",
+    "//Libraries/LibWeb",
   ]
   sources = [
     "Application.cpp",

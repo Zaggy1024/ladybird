@@ -1,5 +1,5 @@
 action("generate_tiff_sources") {
-  script = "//Userland/Libraries/LibGfx/TIFFGenerator.py"
+  script = "//Libraries/LibGfx/TIFFGenerator.py"
 
   args = [
     "-o",
@@ -19,7 +19,7 @@ config("tiff_headers") {
 shared_library("LibGfx") {
   output_name = "gfx"
   include_dirs = [
-    "//Userland/Libraries",
+    "//Libraries",
     "//Userland",
   ]
   public_configs = [ ":tiff_headers" ]
@@ -90,13 +90,13 @@ shared_library("LibGfx") {
     "//Meta/gn/build/libs/skia",
     "//Meta/gn/build/libs/webp",
     "//Meta/gn/build/libs/woff2",
-    "//Userland/Libraries/LibCompress",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibCrypto",
-    "//Userland/Libraries/LibFileSystem",
-    "//Userland/Libraries/LibIPC",
-    "//Userland/Libraries/LibTextCodec",
-    "//Userland/Libraries/LibURL",
-    "//Userland/Libraries/LibUnicode",
+    "//Libraries/LibCompress",
+    "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
+    "//Libraries/LibFileSystem",
+    "//Libraries/LibIPC",
+    "//Libraries/LibTextCodec",
+    "//Libraries/LibURL",
+    "//Libraries/LibUnicode",
   ]
 }

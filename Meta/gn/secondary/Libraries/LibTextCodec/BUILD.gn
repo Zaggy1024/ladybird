@@ -15,14 +15,14 @@ compiled_action("generate_encoding_indexes") {
     "-c",
     rebase_path(outputs[1], root_build_dir),
     "-j",
-    rebase_path("//Userland/Libraries/LibTextCodec/indexes.json"),
+    rebase_path("//Libraries/LibTextCodec/indexes.json"),
   ]
 }
 
 shared_library("LibTextCodec") {
   output_name = "textcodec"
   include_dirs = [
-    "//Userland/Libraries",
+    "//Libraries",
     "$target_gen_dir/..",
   ]
   deps = [

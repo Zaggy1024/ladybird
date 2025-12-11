@@ -74,8 +74,6 @@ shared_library("AK") {
     "FixedArray.h",
     "FixedPoint.h",
     "FloatingPoint.h",
-    "FloatingPointStringConversions.cpp",
-    "FloatingPointStringConversions.h",
     "FlyString.cpp",
     "FlyString.h",
     "Format.cpp",

@@ -1,5 +1,5 @@
 source_set("EventTiming") {
-  configs += [ "//Userland/Libraries/LibWeb:configs" ]
-  deps = [ "//Userland/Libraries/LibWeb:all_generated" ]
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [ "PerformanceEventTiming.cpp" ]
 }

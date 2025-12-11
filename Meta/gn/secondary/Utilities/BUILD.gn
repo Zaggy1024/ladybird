@@ -1,12 +1,12 @@
 executable("js") {
   sources = [ "js.cpp" ]
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibJS",
-    "//Userland/Libraries/LibLine",
-    "//Userland/Libraries/LibMain",
-    "//Userland/Libraries/LibTextCodec",
+    "//Libraries/LibCore",
+    "//Libraries/LibJS",
+    "//Libraries/LibLine",
+    "//Libraries/LibMain",
+    "//Libraries/LibTextCodec",
   ]
 }

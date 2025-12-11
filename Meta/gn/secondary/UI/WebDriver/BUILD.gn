@@ -4,7 +4,7 @@ executable("WebDriver") {
   configs += [ "//UI:ladybird_config" ]
   include_dirs = [
     "//UI",
-    "//Userland/Services",
+    "//Services",
   ]
   data_deps = [
     "//UI:headless-browser",
@@ -12,23 +12,23 @@ executable("WebDriver") {
   ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibFileSystem",
-    "//Userland/Libraries/LibGfx",
-    "//Userland/Libraries/LibIPC",
-    "//Userland/Libraries/LibJS",
-    "//Userland/Libraries/LibMain",
-    "//Userland/Libraries/LibURL",
-    "//Userland/Libraries/LibWeb",
-    "//Userland/Libraries/LibWebSocket",
-    "//Userland/Libraries/LibWebView:WebDriverClientEndpoint",
-    "//Userland/Libraries/LibWebView:WebDriverServerEndpoint",
+    "//Libraries/LibCore",
+    "//Libraries/LibFileSystem",
+    "//Libraries/LibGfx",
+    "//Libraries/LibIPC",
+    "//Libraries/LibJS",
+    "//Libraries/LibMain",
+    "//Libraries/LibURL",
+    "//Libraries/LibWeb",
+    "//Libraries/LibWebSocket",
+    "//Libraries/LibWebView:WebDriverClientEndpoint",
+    "//Libraries/LibWebView:WebDriverServerEndpoint",
   ]
   sources = [
     "//UI/Utilities.cpp",
-    "//Userland/Services/WebDriver/Client.cpp",
-    "//Userland/Services/WebDriver/Session.cpp",
-    "//Userland/Services/WebDriver/WebContentConnection.cpp",
+    "//Services/WebDriver/Client.cpp",
+    "//Services/WebDriver/Session.cpp",
+    "//Services/WebDriver/WebContentConnection.cpp",
     "main.cpp",
   ]
 }

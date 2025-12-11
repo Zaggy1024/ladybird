@@ -10,7 +10,7 @@ if (include_wasm_spec_tests) {
 
 shared_library("LibWasm") {
   output_name = "wasm"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [
     "AbstractMachine/AbstractMachine.cpp",
     "AbstractMachine/BytecodeInterpreter.cpp",
@@ -22,7 +22,7 @@ shared_library("LibWasm") {
   ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibJS",
+    "//Libraries/LibCore",
+    "//Libraries/LibJS",
   ]
 }

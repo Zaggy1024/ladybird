@@ -1,15 +1,15 @@
 shared_library("LibJS") {
   output_name = "js"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   cflags_cc = [ "-fno-omit-frame-pointer" ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibCrypto",
-    "//Userland/Libraries/LibFileSystem",
-    "//Userland/Libraries/LibRegex",
-    "//Userland/Libraries/LibSyntax",
-    "//Userland/Libraries/LibUnicode",
+    "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
+    "//Libraries/LibFileSystem",
+    "//Libraries/LibRegex",
+    "//Libraries/LibSyntax",
+    "//Libraries/LibUnicode",
   ]
 
   sources = [

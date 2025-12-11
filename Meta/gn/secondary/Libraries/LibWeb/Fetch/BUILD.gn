@@ -1,9 +1,9 @@
 source_set("Fetch") {
-  configs += [ "//Userland/Libraries/LibWeb:configs" ]
+  configs += [ "//Libraries/LibWeb:configs" ]
   deps = [
     "Fetching",
     "Infrastructure",
-    "//Userland/Libraries/LibWeb:all_generated",
+    "//Libraries/LibWeb:all_generated",
   ]
   sources = [
     "Body.cpp",

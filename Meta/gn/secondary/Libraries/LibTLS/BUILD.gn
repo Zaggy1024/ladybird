@@ -1,6 +1,6 @@
 shared_library("LibTLS") {
   output_name = "tls"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   cflags_cc = [ "-Wvla" ]
   sources = [
     "Certificate.cpp",
@@ -14,8 +14,8 @@ shared_library("LibTLS") {
   ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibCrypto",
-    "//Userland/Libraries/LibFileSystem",
+    "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
+    "//Libraries/LibFileSystem",
   ]
 }

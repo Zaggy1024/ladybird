@@ -1,10 +1,10 @@
 shared_library("LibLine") {
   output_name = "line"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibUnicode",
+    "//Libraries/LibCore",
+    "//Libraries/LibUnicode",
   ]
   sources = [
     "Editor.cpp",

@@ -87,7 +87,7 @@ tests = [
 
 foreach(test_name, tests) {
   unittest(test_name) {
-    include_dirs = [ "//Userland/Libraries" ]
+    include_dirs = [ "//Libraries" ]
     sources = [ test_name + ".cpp" ]
   }
 }

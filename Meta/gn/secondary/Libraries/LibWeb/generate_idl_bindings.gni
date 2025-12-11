@@ -50,11 +50,11 @@ template("generate_idl_bindings") {
                          ])
   idl_sources = []
   generate_idl = []
-  gen_dir = get_label_info("//Userland/Libraries/LibWeb", "target_gen_dir") +
+  gen_dir = get_label_info("//Libraries/LibWeb", "target_gen_dir") +
             "/Bindings/"
   foreach(idl, idl_list) {
     out_name = get_path_info(idl, "name")
-    path = get_path_info(rebase_path(idl, "//Userland/Libraries/LibWeb"),
+    path = get_path_info(rebase_path(idl, "//Libraries/LibWeb"),
                          "dir") + "/" + out_name
     name = string_replace(path, "/", "_")
 
@@ -86,7 +86,7 @@ template("generate_idl_bindings") {
     }
 
     if (!defined(include_dirs)) {
-      include_dirs = [ "//Userland/Libraries" ]
+      include_dirs = [ "//Libraries" ]
     }
     rel_include_dirs = []
     foreach(d, include_dirs) {
@@ -109,17 +109,17 @@ template("generate_idl_bindings") {
              ] + rel_include_dirs +
              [
                rebase_path(inputs[0], root_build_dir),
-               rebase_path("//Userland/Libraries/LibWeb", root_build_dir),
+               rebase_path("//Libraries/LibWeb", root_build_dir),
              ]
     }
 
     source_set(name + "_sources") {
       deps = [
         ":generate_" + name,
-        "//Userland/Libraries/LibWeb:all_generated",
+        "//Libraries/LibWeb:all_generated",
       ]
       sources = get_target_outputs(deps[0])
-      configs += [ "//Userland/Libraries/LibWeb:configs" ]
+      configs += [ "//Libraries/LibWeb:configs" ]
     }
 
     generate_idl += [ ":generate_" + name ]

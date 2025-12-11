@@ -1,12 +1,12 @@
 shared_library("LibWebSocket") {
   output_name = "websocket"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibCrypto",
-    "//Userland/Libraries/LibTLS",
-    "//Userland/Libraries/LibURL",
+    "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
+    "//Libraries/LibTLS",
+    "//Libraries/LibURL",
   ]
   sources = [
     "ConnectionInfo.cpp",

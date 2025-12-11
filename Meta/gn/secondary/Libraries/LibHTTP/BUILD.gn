@@ -1,15 +1,15 @@
 shared_library("LibHTTP") {
   output_name = "http"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [
     "HttpRequest.cpp",
     "HttpResponse.cpp",
   ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibCompress",
-    "//Userland/Libraries/LibCore",
-    "//Userland/Libraries/LibTLS",
-    "//Userland/Libraries/LibURL",
+    "//Libraries/LibCompress",
+    "//Libraries/LibCore",
+    "//Libraries/LibTLS",
+    "//Libraries/LibURL",
   ]
 }

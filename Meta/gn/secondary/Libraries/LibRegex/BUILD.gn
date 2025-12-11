@@ -1,6 +1,6 @@
 shared_library("LibRegex") {
   output_name = "regex"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [
     "RegexByteCode.cpp",
     "RegexLexer.cpp",
@@ -10,6 +10,6 @@ shared_library("LibRegex") {
   ]
   deps = [
     "//AK",
-    "//Userland/Libraries/LibUnicode",
+    "//Libraries/LibUnicode",
   ]
 }

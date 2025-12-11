@@ -1,7 +1,7 @@
 source_set("WebAudio") {
-  configs += [ "//Userland/Libraries/LibWeb:configs" ]
+  configs += [ "//Libraries/LibWeb:configs" ]
 
-  deps = [ "//Userland/Libraries/LibWeb:all_generated" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
 
   sources = [
     "AudioBuffer.cpp",

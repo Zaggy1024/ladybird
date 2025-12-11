@@ -1,5 +1,5 @@
 static_library("LibMain") {
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   sources = [
     "Main.cpp",
     "Main.h",

@@ -1,11 +1,11 @@
 shared_library("LibCrypto") {
   output_name = "crypto"
-  include_dirs = [ "//Userland/Libraries" ]
+  include_dirs = [ "//Libraries" ]
   cflags_cc = [ "-Wvla" ]
   deps = [
     "//AK",
     "//Meta/gn/build/libs/openssl",
-    "//Userland/Libraries/LibCore",
+    "//Libraries/LibCore",
   ]
   sources = [
     "ASN1/ASN1.cpp",

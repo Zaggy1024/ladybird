@@ -2,5 +2,5 @@ import("//Meta/Lagom/Tools/lagom_tool.gni")
 
 lagom_tool("IPCCompiler") {
   sources = [ "main.cpp" ]
-  deps = [ "//Userland/Libraries/LibMain" ]
+  deps = [ "//Libraries/LibMain" ]
 }
