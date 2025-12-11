@@ -2,8 +2,11 @@ shared_library("LibHTTP") {
   output_name = "http"
   include_dirs = [ "//Libraries" ]
   sources = [
+    "Header.cpp",
+    "HeaderList.cpp",
+    "HTTP.cpp",
     "HttpRequest.cpp",
-    "HttpResponse.cpp",
+    "Method.cpp",
   ]
   deps = [
     "//AK",

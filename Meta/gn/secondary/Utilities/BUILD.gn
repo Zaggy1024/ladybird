@@ -10,3 +10,13 @@ executable("js") {
     "//Libraries/LibTextCodec",
   ]
 }
+
+executable("test262-runner") {
+  sources = [ "test262-runner.cpp" ]
+  include_dirs = [ "//Libraries" ]
+  deps = [
+    "//AK",
+    "//Libraries/LibCore",
+    "//Libraries/LibJS",
+  ]
+}

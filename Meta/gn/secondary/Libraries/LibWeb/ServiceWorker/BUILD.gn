@@ -5,5 +5,7 @@ source_set("ServiceWorker") {
     "Job.cpp",
     "Registration.cpp",
     "ServiceWorker.cpp",
+    "ServiceWorkerContainer.cpp",
+    "ServiceWorkerRegistration.cpp",
   ]
 }

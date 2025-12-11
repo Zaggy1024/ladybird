@@ -1,0 +1,14 @@
+import("//Tests/unittest.gni")
+
+unittest("TestFetchInfrastructure") {
+  include_dirs = [ "//Libraries" ]
+  sources = [ "TestFetchInfrastructure.cpp" ]
+  deps = [ "//Libraries/LibWeb" ]
+}
+
+group("LibHTTP") {
+  testonly = true
+  deps = [
+    ":TestFetchInfrastructure",
+  ]
+}

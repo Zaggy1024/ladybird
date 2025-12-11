@@ -22,12 +22,9 @@ executable("WebWorker") {
     "//Libraries/LibWebView",
   ]
   sources = [
-    "//UI/FontPlugin.cpp",
-    "//UI/HelperProcess.cpp",
-    "//UI/Utilities.cpp",
     "//Services/WebWorker/ConnectionFromClient.cpp",
-    "//Services/WebWorker/DedicatedWorkerHost.cpp",
     "//Services/WebWorker/PageHost.cpp",
+    "//Services/WebWorker/WorkerHost.cpp",
     "main.cpp",
   ]
   output_dir = "$root_out_dir/libexec"

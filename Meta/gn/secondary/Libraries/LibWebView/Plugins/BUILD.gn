@@ -1,0 +1,10 @@
+source_set("Plugins") {
+  configs += [ "//Libraries/LibWebView:configs" ]
+  deps = [
+    "//AK",
+  ]
+  sources = [
+    "FontPlugin.cpp",
+    "ImageCodecPlugin.cpp",
+  ]
+}

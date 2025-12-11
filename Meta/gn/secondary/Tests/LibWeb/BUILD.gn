@@ -12,12 +12,6 @@ unittest("TestCSSPixels") {
   deps = [ "//Libraries/LibWeb" ]
 }
 
-unittest("TestFetchInfrastructure") {
-  include_dirs = [ "//Libraries" ]
-  sources = [ "TestFetchInfrastructure.cpp" ]
-  deps = [ "//Libraries/LibWeb" ]
-}
-
 unittest("TestFetchURL") {
   include_dirs = [ "//Libraries" ]
   sources = [ "TestFetchURL.cpp" ]
@@ -56,7 +50,6 @@ group("LibWeb") {
   deps = [
     ":TestCSSIDSpeed",
     ":TestCSSPixels",
-    ":TestFetchInfrastructure",
     ":TestFetchURL",
     ":TestHTMLTokenizer",
     ":TestMicrosyntax",

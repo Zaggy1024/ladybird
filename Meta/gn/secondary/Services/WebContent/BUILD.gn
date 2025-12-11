@@ -39,11 +39,6 @@ executable("WebContent") {
     "//Libraries/LibWebView:WebDriverServerEndpoint",
   ]
   sources = [
-    "//UI/FontPlugin.cpp",
-    "//UI/HelperProcess.cpp",
-    "//UI/ImageCodecPlugin.cpp",
-    "//UI/Utilities.cpp",
-    "//Services/WebContent/BackingStoreManager.cpp",
     "//Services/WebContent/ConnectionFromClient.cpp",
     "//Services/WebContent/ConsoleGlobalEnvironmentExtensions.cpp",
     "//Services/WebContent/PageClient.cpp",

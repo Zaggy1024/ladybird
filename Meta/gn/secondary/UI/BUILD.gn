@@ -15,17 +15,14 @@ group("UI") {
 moc_qt_objects("generate_moc") {
   sources = [
     "Qt/Application.h",
-    "Qt/AutoComplete.h",
+    "Qt/Autocomplete.h",
     "Qt/BrowserWindow.h",
     "Qt/EventLoopImplementationQtEventTarget.h",
     "Qt/FindInPageWidget.h",
-    "Qt/InspectorWidget.h",
     "Qt/LocationEdit.h",
     "Qt/Settings.h",
-    "Qt/SettingsDialog.h",
     "Qt/Tab.h",
     "Qt/TabBar.h",
-    "Qt/TaskManagerWindow.h",
     "Qt/WebContentView.h",
   ]
 }
@@ -44,17 +41,17 @@ link_qt("ladybird_qt_components") {
 
 config("ladybird_config") {
   include_dirs = [
-    "//Userland",
+    "//Libraries",
     "//Applications",
     "//Services",
   ]
 }
 
 ladybird_helper_processes = [
-  "ImageDecoder",
-  "RequestServer",
-  "WebContent",
-  "WebWorker",
+  "//Services/ImageDecoder",
+  "//Services/RequestServer",
+  "//Services/WebContent",
+  "//Services/WebWorker",
 ]
 
 executable("ladybird_executable") {
@@ -74,31 +71,25 @@ executable("ladybird_executable") {
     "//Libraries/LibWeb",
     "//Libraries/LibWebView",
   ]
-  sources = [
-    "HelperProcess.cpp",
-    "Utilities.cpp",
-  ]
+  sources = [ ]
 
   if (enable_qt) {
     configs += [ ":ladybird_qt_components" ]
 
     sources += [
       "Qt/Application.cpp",
-      "Qt/AutoComplete.cpp",
+      "Qt/Autocomplete.cpp",
       "Qt/BrowserWindow.cpp",
       "Qt/EventLoopImplementationQt.cpp",
       "Qt/EventLoopImplementationQtEventTarget.cpp",
       "Qt/FindInPageWidget.cpp",
       "Qt/Icon.cpp",
-      "Qt/InspectorWidget.cpp",
       "Qt/LocationEdit.cpp",
       "Qt/Settings.cpp",
-      "Qt/SettingsDialog.cpp",
       "Qt/StringUtils.cpp",
       "Qt/TVGIconEngine.cpp",
       "Qt/Tab.cpp",
       "Qt/TabBar.cpp",
-      "Qt/TaskManagerWindow.cpp",
       "Qt/WebContentView.cpp",
       "Qt/main.cpp",
     ]
@@ -162,7 +153,6 @@ executable("ladybird_executable") {
       ":ladybird_copy_icons_48x48",
       ":ladybird_copy_icons_browser",
       ":ladybird_copy_themes",
-      ":ladybird_copy_web_resources",
       ":ladybird_copy_web_templates",
     ]
   }
@@ -195,8 +185,6 @@ executable("headless-browser") {
   data_deps = ladybird_helper_processes
   sources = [
     "//Utilities/headless-browser.cpp",
-    "HelperProcess.cpp",
-    "Utilities.cpp",
   ]
 }
 
@@ -251,7 +239,6 @@ icons_128x128 = [
 ]
 
 icons_browser = [
-  "//Base/res/icons/browser/clear-cache.png",
   "//Base/res/icons/browser/cookie.png",
   "//Base/res/icons/browser/dom-tree.png",
   "//Base/res/icons/browser/local-storage.png",
@@ -260,12 +247,6 @@ icons_browser = [
 themes = [
   "//Base/res/themes/Default.ini",
   "//Base/res/themes/Dark.ini",
-]
-
-web_resources = [
-  "//Base/res/ladybird/inspector.css",
-  "//Base/res/ladybird/inspector.html",
-  "//Base/res/ladybird/inspector.js",
 ]
 
 about_pages = [
@@ -316,11 +297,6 @@ if (current_os != "mac") {
   copy("ladybird_copy_themes") {
     sources = themes
     outputs = [ "$root_out_dir/share/Lagom/themes/{{source_file_part}}" ]
-  }
-
-  copy("ladybird_copy_web_resources") {
-    sources = web_resources
-    outputs = [ "$root_out_dir/share/Lagom/ladybird/{{source_file_part}}" ]
   }
 
   copy("ladybird_copy_about_pages") {
@@ -467,11 +443,6 @@ if (current_os != "mac") {
     outputs = [ "{{bundle_resources_dir}}/themes/{{source_file_part}}" ]
   }
 
-  bundle_data("ladybird_web_resources") {
-    sources = web_resources
-    outputs = [ "{{bundle_resources_dir}}/ladybird/{{source_file_part}}" ]
-  }
-
   bundle_data("ladybird_about_pages") {
     sources = about_pages
     outputs =
@@ -545,7 +516,6 @@ if (current_os != "mac") {
       ":ladybird_icons_48x48",
       ":ladybird_icons_browser",
       ":ladybird_themes",
-      ":ladybird_web_resources",
       ":ladybird_web_templates",
     ]
   }

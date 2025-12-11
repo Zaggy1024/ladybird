@@ -2,7 +2,6 @@ source_set("Internals") {
   configs += [ "//Libraries/LibWeb:configs" ]
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
-    "Inspector.cpp",
     "InternalAnimationTimeline.cpp",
     "Internals.cpp",
   ]

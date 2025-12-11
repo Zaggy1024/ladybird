@@ -1,0 +1,13 @@
+shared_library("LibDatabase") {
+  output_name = "database"
+  include_dirs = [
+    "//Libraries",
+  ]
+  deps = [
+    "//Meta/gn/build/libs/sqlite3",
+    "//Libraries/LibCore",
+  ]
+  sources = [
+    "Database.cpp",
+  ]
+}

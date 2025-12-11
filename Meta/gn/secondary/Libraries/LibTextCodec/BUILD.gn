@@ -1,9 +1,7 @@
-import("//Meta/gn/build/compiled_action.gni")
+action("generate_encoding_indexes") {
+  script = "//Meta/generate_encoding_indexes.py"
 
-compiled_action("generate_encoding_indexes") {
-  tool =
-      "//Meta/Lagom/Tools/CodeGenerators/LibTextCodec:GenerateEncodingIndexes"
-
+  sources = [ "//Libraries/LibTextCodec/indexes.json" ]
   outputs = [
     "$target_gen_dir/LookupTables.h",
     "$target_gen_dir/LookupTables.cpp",
@@ -15,7 +13,7 @@ compiled_action("generate_encoding_indexes") {
     "-c",
     rebase_path(outputs[1], root_build_dir),
     "-j",
-    rebase_path("//Libraries/LibTextCodec/indexes.json"),
+    rebase_path(sources[0]),
   ]
 }
 

@@ -2,8 +2,6 @@ shared_library("LibTest") {
   output_name = "test"
   include_dirs = [ "//Libraries" ]
   sources = [
-    "CrashTest.cpp",
-    "CrashTest.h",
     "Macros.h",
     "Randomized/Chunk.h",
     "Randomized/Generator.h",

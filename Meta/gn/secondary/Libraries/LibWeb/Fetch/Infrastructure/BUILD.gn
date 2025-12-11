@@ -5,13 +5,11 @@ source_set("Infrastructure") {
     "//Libraries/LibWeb:all_generated",
   ]
   sources = [
-    "ConnectionTimingInfo.cpp",
     "FetchAlgorithms.cpp",
     "FetchController.cpp",
     "FetchParams.cpp",
     "FetchRecord.cpp",
     "FetchTimingInfo.cpp",
-    "HTTP.cpp",
     "IncrementalReadLoopReadRequest.cpp",
     "MimeTypeBlocking.cpp",
     "NetworkPartitionKey.cpp",

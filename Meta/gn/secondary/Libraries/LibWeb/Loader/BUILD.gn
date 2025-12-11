@@ -5,9 +5,7 @@ source_set("Loader") {
     "ContentFilter.cpp",
     "FileRequest.cpp",
     "GeneratedPagesLoader.cpp",
-    "LoadRequest.cpp",
     "ProxyMappings.cpp",
-    "Resource.cpp",
     "ResourceLoader.cpp",
   ]
 }

@@ -20,9 +20,8 @@ if (enable_public_suffix_list_download) {
     version_file = public_suffix_cache + "version.txt"
   }
 
-  compiled_action("generate_public_suffix_list_sources") {
-    tool =
-        "//Meta/Lagom/Tools/CodeGenerators/LibWebView:GeneratePublicSuffixData"
+  action("generate_public_suffix_list_sources") {
+    script = "//Meta/generate_public_suffix_data.py"
     deps = [ ":public_suffix_list_download" ]
     outputs = [
       "$target_gen_dir/PublicSuffixData.h",
@@ -113,14 +112,19 @@ embed_as_string("generate_native_stylesheet_source") {
   namespace = "WebView"
 }
 
-shared_library("LibWebView") {
-  output_name = "webview"
+config("configs") {
   include_dirs = [
     "//Libraries",
     "//Services",
     "//",
     "$target_gen_dir/..",
   ]
+  configs = [ "//AK:ak_headers" ]
+}
+
+shared_library("LibWebView") {
+  output_name = "webview"
+  public_configs = [ ":configs" ]
   deps = [
     ":UIProcessClientEndpoint",
     ":UIProcessServerEndpoint",
@@ -142,14 +146,14 @@ shared_library("LibWebView") {
     "//Libraries/LibURL",
     "//Libraries/LibUnicode",
     "//Libraries/LibWeb",
+    "Plugins",
   ]
   sources = [
     "Application.cpp",
     "Attribute.cpp",
-    "ChromeProcess.cpp",
+    "BrowserProcess.cpp",
     "CookieJar.cpp",
-    "Database.cpp",
-    "InspectorClient.cpp",
+    "HelperProcess.cpp",
     "Process.cpp",
     "ProcessHandle.cpp",
     "ProcessManager.cpp",
@@ -157,6 +161,7 @@ shared_library("LibWebView") {
     "SourceHighlighter.cpp",
     "URL.cpp",
     "UserAgent.cpp",
+    "Utilities.cpp",
     "ViewImplementation.cpp",
     "WebContentClient.cpp",
   ]

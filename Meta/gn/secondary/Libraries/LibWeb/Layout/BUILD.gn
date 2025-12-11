@@ -10,7 +10,6 @@ source_set("Layout") {
     "BlockContainer.cpp",
     "BlockFormattingContext.cpp",
     "Box.cpp",
-    "BoxModelMetrics.cpp",
     "BreakNode.cpp",
     "CanvasBox.cpp",
     "CheckBox.cpp",

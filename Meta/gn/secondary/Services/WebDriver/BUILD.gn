@@ -25,7 +25,6 @@ executable("WebDriver") {
     "//Libraries/LibWebView:WebDriverServerEndpoint",
   ]
   sources = [
-    "//UI/Utilities.cpp",
     "//Services/WebDriver/Client.cpp",
     "//Services/WebDriver/Session.cpp",
     "//Services/WebDriver/WebContentConnection.cpp",

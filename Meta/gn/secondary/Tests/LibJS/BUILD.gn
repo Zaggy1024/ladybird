@@ -10,20 +10,9 @@ unittest("test-js") {
   ]
 }
 
-executable("test262-runner") {
-  sources = [ "test262-runner.cpp" ]
-  include_dirs = [ "//Libraries" ]
-  deps = [
-    "//AK",
-    "//Libraries/LibCore",
-    "//Libraries/LibJS",
-  ]
-}
-
 group("LibJS") {
   testonly = true
   deps = [
     ":test-js",
-    ":test262-runner",
   ]
 }

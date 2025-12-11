@@ -15,6 +15,7 @@ source_set("Scripting") {
     "SerializedEnvironmentSettingsObject.cpp",
     "TemporaryExecutionContext.cpp",
     "WindowEnvironmentSettingsObject.cpp",
+    "WorkerAgent.cpp",
     "WorkerEnvironmentSettingsObject.cpp",
   ]
 }
