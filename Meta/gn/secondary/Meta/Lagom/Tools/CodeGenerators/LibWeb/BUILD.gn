@@ -12,8 +12,24 @@ lagom_tool("GenerateAriaRoles") {
   ]
 }
 
+lagom_tool("GenerateCSSDescriptors") {
+  sources = [ "GenerateCSSDescriptors.cpp" ]
+  deps = [
+    ":headers",
+    "//Libraries/LibMain",
+  ]
+}
+
 lagom_tool("GenerateCSSEnums") {
   sources = [ "GenerateCSSEnums.cpp" ]
+  deps = [
+    ":headers",
+    "//Libraries/LibMain",
+  ]
+}
+
+lagom_tool("GenerateCSSEnvironmentVariable") {
+  sources = [ "GenerateCSSEnvironmentVariable.cpp" ]
   deps = [
     ":headers",
     "//Libraries/LibMain",
@@ -30,6 +46,14 @@ lagom_tool("GenerateCSSMathFunctions") {
 
 lagom_tool("GenerateCSSMediaFeatureID") {
   sources = [ "GenerateCSSMediaFeatureID.cpp" ]
+  deps = [
+    ":headers",
+    "//Libraries/LibMain",
+  ]
+}
+
+lagom_tool("GenerateCSSNumericFactoryMethods") {
+  sources = [ "GenerateCSSNumericFactoryMethods.cpp" ]
   deps = [
     ":headers",
     "//Libraries/LibMain",
@@ -60,8 +84,24 @@ lagom_tool("GenerateCSSPseudoElement") {
   ]
 }
 
+lagom_tool("GenerateCSSStyleProperties") {
+  sources = [ "GenerateCSSStyleProperties.cpp" ]
+  deps = [
+    ":headers",
+    "//Libraries/LibMain",
+  ]
+}
+
 lagom_tool("GenerateCSSTransformFunctions") {
   sources = [ "GenerateCSSTransformFunctions.cpp" ]
+  deps = [
+    ":headers",
+    "//Libraries/LibMain",
+  ]
+}
+
+lagom_tool("GenerateCSSUnits") {
+  sources = [ "GenerateCSSUnits.cpp" ]
   deps = [
     ":headers",
     "//Libraries/LibMain",

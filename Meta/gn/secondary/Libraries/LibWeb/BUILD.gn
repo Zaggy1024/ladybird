@@ -3,29 +3,105 @@ import("//Meta/gn/build/embed_as_string.gni")
 import("generate_idl_bindings.gni")
 import("idl_files.gni")
 
+template("generate_code_from_input") {
+  name = target_name
+  output_header = "${target_gen_dir}/${invoker.header}"
+  output_implementation = "${target_gen_dir}/${invoker.implementation}"
+
+  compiled_action(name) {
+    tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:${invoker.tool}"
+    inputs = [ invoker.input ]
+    outputs = [
+      output_header,
+      output_implementation,
+    ]
+    args = [
+      "-h",
+      rebase_path(output_header, root_build_dir),
+      "-c",
+      rebase_path(output_implementation, root_build_dir),
+    ]
+
+    if (defined(invoker.idl)) {
+      idl_output = "${target_gen_dir}/${invoker.idl}"
+      outputs += [ idl_output ]
+      args += [
+        "-i",
+        rebase_path(idl_output, root_build_dir),
+      ]
+    }
+
+    args += [
+      "-j",
+      rebase_path(inputs[0], root_build_dir),
+    ]
+  }
+
+  source_set("${name}_outputs") {
+    deps = [ ":$name" ]
+    sources = [
+      output_header,
+      output_implementation,
+    ]
+    configs += [ "//Libraries/LibWeb:configs" ]
+  }
+}
+
+generate_code_from_input("generate_css_style_properties") {
+  tool = "GenerateCSSStyleProperties"
+  input = "CSS/Properties.json"
+  header = "CSS/GeneratedCSSStyleProperties.h"
+  implementation = "CSS/GeneratedCSSStyleProperties.cpp"
+  idl = "CSS/GeneratedCSSStyleProperties.idl"
+}
+
+generate_code_from_input("generate_css_numeric_factory_methods") {
+  tool = "GenerateCSSNumericFactoryMethods"
+  input = "CSS/Units.json"
+  header = "CSS/GeneratedCSSNumericFactoryMethods.h"
+  implementation = "CSS/GeneratedCSSNumericFactoryMethods.cpp"
+  idl = "CSS/GeneratedCSSNumericFactoryMethods.idl"
+}
+
+generated_idl_file_targets = [
+  ":generate_css_style_properties",
+  ":generate_css_numeric_factory_methods",
+]
+
 generate_idl_bindings("standard_idl_bindings") {
   idl_list = standard_idl_files
   type = "standard"
+  deps = generated_idl_file_targets
 }
 
 generate_idl_bindings("iterable_idl_bindings") {
   idl_list = iterable_idl_files
   type = "iterable"
+  deps = generated_idl_file_targets
+}
+
+generate_idl_bindings("async_iterable_idl_bindings") {
+  idl_list = async_iterable_idl_files
+  type = "async_iterable"
+  deps = generated_idl_file_targets
 }
 
 generate_idl_bindings("namespace_idl_bindings") {
   idl_list = namespace_idl_files
   type = "namespace"
+  deps = generated_idl_file_targets
 }
 
 generate_idl_bindings("global_idl_bindings") {
   idl_list = global_idl_files
   type = "global"
+  deps = generated_idl_file_targets
 }
 
 generate_idl_targets = [
   ":standard_idl_bindings_generated",
   ":iterable_idl_bindings_generated",
+  ":async_iterable_idl_bindings_generated",
   ":namespace_idl_bindings_generated",
   ":global_idl_bindings_generated",
 ]
@@ -33,6 +109,7 @@ generate_idl_targets = [
 idl_sources_targets = [
   ":standard_idl_bindings_sources",
   ":iterable_idl_bindings_sources",
+  ":async_iterable_idl_bindings_sources",
   ":namespace_idl_bindings_sources",
   ":global_idl_bindings_sources",
 ]
@@ -61,14 +138,15 @@ compiled_action("WebWorkerServerEndpoint") {
 
 compiled_action("generate_window_or_worker_interfaces") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateWindowOrWorkerInterfaces"
-  inputs = standard_idl_files + iterable_idl_files + namespace_idl_files +
-           global_idl_files
+  inputs = all_idl_files
   outputs = [
     "$target_gen_dir/Bindings/IntrinsicDefinitions.cpp",
     "$target_gen_dir/Bindings/DedicatedWorkerExposedInterfaces.cpp",
     "$target_gen_dir/Bindings/DedicatedWorkerExposedInterfaces.h",
     "$target_gen_dir/Bindings/SharedWorkerExposedInterfaces.cpp",
     "$target_gen_dir/Bindings/SharedWorkerExposedInterfaces.h",
+    "$target_gen_dir/Bindings/ShadowRealmExposedInterfaces.cpp",
+    "$target_gen_dir/Bindings/ShadowRealmExposedInterfaces.h",
     "$target_gen_dir/Bindings/WindowExposedInterfaces.cpp",
     "$target_gen_dir/Bindings/WindowExposedInterfaces.h",
   ]
@@ -77,10 +155,13 @@ compiled_action("generate_window_or_worker_interfaces") {
     rebase_path("$target_gen_dir/Bindings", root_build_dir),
     "-b",
     rebase_path("//Libraries/LibWeb", root_build_dir),
+    "-b",
+    rebase_path(target_gen_dir, root_build_dir),
   ]
   foreach(idl, inputs) {
     args += [ rebase_path(idl, root_build_dir) ]
   }
+  deps = generated_idl_file_targets
 }
 
 compiled_action("generate_aria_roles") {
@@ -100,60 +181,48 @@ compiled_action("generate_aria_roles") {
   ]
 }
 
-compiled_action("generate_css_enums") {
-  tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateCSSEnums"
-  inputs = [ "CSS/Enums.json" ]
-  outputs = [
-    "$target_gen_dir/CSS/Enums.h",
-    "$target_gen_dir/CSS/Enums.cpp",
-  ]
-  args = [
-    "-h",
-    rebase_path(outputs[0], root_build_dir),
-    "-c",
-    rebase_path(outputs[1], root_build_dir),
-    "-j",
-    rebase_path(inputs[0], root_build_dir),
-  ]
+generate_code_from_input("generate_css_descriptors") {
+  tool = "GenerateCSSDescriptors"
+  input = "CSS/Descriptors.json"
+  header = "CSS/DescriptorID.h"
+  implementation = "CSS/DescriptorID.cpp"
 }
 
-compiled_action("generate_css_math_functions") {
-  tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateCSSMathFunctions"
-  inputs = [ "CSS/MathFunctions.json" ]
-  outputs = [
-    "$target_gen_dir/CSS/MathFunctions.h",
-    "$target_gen_dir/CSS/MathFunctions.cpp",
-  ]
-  args = [
-    "-h",
-    rebase_path(outputs[0], root_build_dir),
-    "-c",
-    rebase_path(outputs[1], root_build_dir),
-    "-j",
-    rebase_path(inputs[0], root_build_dir),
-  ]
+generate_code_from_input("generate_css_enums") {
+  tool = "GenerateCSSEnums"
+  input = "CSS/Enums.json"
+  header = "CSS/Enums.h"
+  implementation = "CSS/Enums.cpp"
 }
 
-compiled_action("generate_css_media_feature_id") {
-  tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateCSSMediaFeatureID"
-  inputs = [ "CSS/MediaFeatures.json" ]
-  outputs = [
-    "$target_gen_dir/CSS/MediaFeatureID.h",
-    "$target_gen_dir/CSS/MediaFeatureID.cpp",
-  ]
-  args = [
-    "-h",
-    rebase_path(outputs[0], root_build_dir),
-    "-c",
-    rebase_path(outputs[1], root_build_dir),
-    "-j",
-    rebase_path(inputs[0], root_build_dir),
-  ]
+generate_code_from_input("generate_css_environment_variables") {
+  tool = "GenerateCSSEnvironmentVariable"
+  input = "CSS/EnvironmentVariables.json"
+  header = "CSS/EnvironmentVariable.h"
+  implementation = "CSS/EnvironmentVariable.cpp"
+}
+
+generate_code_from_input("generate_css_math_functions") {
+  tool = "GenerateCSSMathFunctions"
+  input = "CSS/MathFunctions.json"
+  header = "CSS/MathFunctions.h"
+  implementation = "CSS/MathFunctions.cpp"
+}
+
+generate_code_from_input("generate_css_media_feature_id") {
+  tool = "GenerateCSSMediaFeatureID"
+  input = "CSS/MediaFeatures.json"
+  header = "CSS/MediaFeatureID.h"
+  implementation = "CSS/MediaFeatureID.cpp"
 }
 
 compiled_action("generate_css_property_id") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateCSSPropertyID"
-  inputs = [ "CSS/Properties.json" ]
+  inputs = [
+    "CSS/Properties.json",
+    "CSS/Enums.json",
+    "CSS/LogicalPropertyGroups.json",
+  ]
   outputs = [
     "$target_gen_dir/CSS/PropertyID.h",
     "$target_gen_dir/CSS/PropertyID.cpp",
@@ -165,76 +234,46 @@ compiled_action("generate_css_property_id") {
     rebase_path(outputs[1], root_build_dir),
     "-j",
     rebase_path(inputs[0], root_build_dir),
+    "-e",
+    rebase_path(inputs[1], root_build_dir),
+    "-g",
+    rebase_path(inputs[2], root_build_dir),
   ]
 }
 
-compiled_action("generate_css_pseudo_class") {
-  tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateCSSPseudoClass"
-  inputs = [ "CSS/PseudoClasses.json" ]
-  outputs = [
-    "$target_gen_dir/CSS/PseudoClass.h",
-    "$target_gen_dir/CSS/PseudoClass.cpp",
-  ]
-  args = [
-    "-h",
-    rebase_path(outputs[0], root_build_dir),
-    "-c",
-    rebase_path(outputs[1], root_build_dir),
-    "-j",
-    rebase_path(inputs[0], root_build_dir),
-  ]
+generate_code_from_input("generate_css_pseudo_class") {
+  tool = "GenerateCSSPseudoClass"
+  input = "CSS/PseudoClasses.json"
+  header = "CSS/PseudoClass.h"
+  implementation = "CSS/PseudoClass.cpp"
 }
 
-compiled_action("generate_css_pseudo_element") {
-  tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateCSSPseudoElement"
-  inputs = [ "CSS/PseudoElement.json" ]
-  outputs = [
-    "$target_gen_dir/CSS/PseudoElement.h",
-    "$target_gen_dir/CSS/PseudoElement.cpp",
-  ]
-  args = [
-    "-h",
-    rebase_path(outputs[0], root_build_dir),
-    "-c",
-    rebase_path(outputs[1], root_build_dir),
-    "-j",
-    rebase_path(inputs[0], root_build_dir),
-  ]
+generate_code_from_input("generate_css_pseudo_element") {
+  tool = "GenerateCSSPseudoElement"
+  input = "CSS/PseudoElements.json"
+  header = "CSS/PseudoElement.h"
+  implementation = "CSS/PseudoElement.cpp"
 }
 
-compiled_action("generate_css_transform_functions") {
-  tool =
-      "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateCSSTransformFunctions"
-  inputs = [ "CSS/TransformFunctions.json" ]
-  outputs = [
-    "$target_gen_dir/CSS/TransformFunctions.h",
-    "$target_gen_dir/CSS/TransformFunctions.cpp",
-  ]
-  args = [
-    "-h",
-    rebase_path(outputs[0], root_build_dir),
-    "-c",
-    rebase_path(outputs[1], root_build_dir),
-    "-j",
-    rebase_path(inputs[0], root_build_dir),
-  ]
+generate_code_from_input("generate_css_transform_functions") {
+  tool = "GenerateCSSTransformFunctions"
+  input = "CSS/TransformFunctions.json"
+  header = "CSS/TransformFunctions.h"
+  implementation = "CSS/TransformFunctions.cpp"
 }
 
-compiled_action("generate_css_keyword") {
-  tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateCSSKeyword"
-  inputs = [ "CSS/Keywords.json" ]
-  outputs = [
-    "$target_gen_dir/CSS/Keyword.h",
-    "$target_gen_dir/CSS/Keyword.cpp",
-  ]
-  args = [
-    "-h",
-    rebase_path(outputs[0], root_build_dir),
-    "-c",
-    rebase_path(outputs[1], root_build_dir),
-    "-j",
-    rebase_path(inputs[0], root_build_dir),
-  ]
+generate_code_from_input("generate_css_units") {
+  tool = "GenerateCSSUnits"
+  input = "CSS/Units.json"
+  header = "CSS/Units.h"
+  implementation = "CSS/Units.cpp"
+}
+
+generate_code_from_input("generate_css_keyword") {
+  tool = "GenerateCSSKeyword"
+  input = "CSS/Keywords.json"
+  header = "CSS/Keyword.h"
+  implementation = "CSS/Keyword.cpp"
 }
 
 embed_as_string("generate_default_stylesheet_source") {
@@ -265,21 +304,11 @@ embed_as_string("generate_quirks_mode_stylesheet_source") {
   namespace = "Web::CSS"
 }
 
-compiled_action("generate_named_character_references") {
-  tool = "//Meta/Lagom/Tools/CodeGenerators/LibWeb:GenerateNamedCharacterReferences"
-  inputs = [ "HTML/Parser/Entities.json" ]
-  outputs = [
-    "$target_gen_dir/HTML/Parser/NamedCharacterReferences.h",
-    "$target_gen_dir/HTML/Parser/NamedCharacterReferences.cpp",
-  ]
-  args = [
-    "-h",
-    rebase_path(outputs[0], root_build_dir),
-    "-c",
-    rebase_path(outputs[1], root_build_dir),
-    "-j",
-    rebase_path(inputs[0], root_build_dir),
-  ]
+generate_code_from_input("generate_named_character_references") {
+  tool = "GenerateNamedCharacterReferences"
+  input = "HTML/Parser/Entities.json"
+  header = "HTML/Parser/NamedCharacterReferences.h"
+  implementation = "HTML/Parser/NamedCharacterReferences.cpp"
 }
 
 source_set("all_generated") {
@@ -287,15 +316,20 @@ source_set("all_generated") {
     ":WebWorkerClientEndpoint",
     ":WebWorkerServerEndpoint",
     ":generate_aria_roles",
+    ":generate_css_descriptors",
     ":generate_css_enums",
+    ":generate_css_environment_variables",
     ":generate_css_keyword",
     ":generate_css_math_functions",
     ":generate_css_media_feature_id",
     ":generate_css_property_id",
     ":generate_css_pseudo_class",
+    ":generate_css_pseudo_element",
     ":generate_css_transform_functions",
+    ":generate_css_units",
     ":generate_default_stylesheet_source",
     ":generate_mathml_stylesheet_source",
+    ":generate_named_character_references",
     ":generate_quirks_mode_stylesheet_source",
     ":generate_svg_stylesheet_source",
     ":generate_window_or_worker_interfaces",
@@ -306,6 +340,9 @@ source_set("all_generated") {
     sources += get_target_outputs(dep)
   }
   deps = generated_deps + generate_idl_targets
+  foreach(dep, generated_idl_file_targets) {
+    deps += [ "${dep}_outputs" ]
+  }
 }
 
 config("configs") {
@@ -326,85 +363,86 @@ shared_library("LibWeb") {
     "PixelUnits.cpp",
   ]
   deps = [
-           ":all_generated",
-           "ARIA",
-           "Animations",
-           "Bindings",
-           "CSS",
-           "Clipboard",
-           "Cookie",
-           "CookieStore",
-           "Crypto",
-           "DOM",
-           "DOMURL",
-           "Encoding",
-           "EntriesAPI",
-           "EventTiming",
-           "Fetch",
-           "FileAPI",
-           "Geolocation",
-           "Geometry",
-           "HTML",
-           "HighResolutionTime",
-           "IndexedDB",
-           "Infra",
-           "Internals",
-           "IntersectionObserver",
-           "Layout",
-           "Loader",
-           "MathML",
-           "MediaCapabilitiesAPI",
-           "MediaSourceExtensions",
-           "MimeSniff",
-           "MixedContent",
-           "NavigationTiming",
-           "Page",
-           "Painting",
-           "PerformanceTimeline",
-           "PermissionsPolicy",
-           "Platform",
-           "ReferrerPolicy",
-           "RequestIdleCallback",
-           "ResizeObserver",
-           "SRI",
-           "SVG",
-           "SecureContexts",
-           "Selection",
-           "ServiceWorker",
-           "StorageAPI",
-           "Streams",
-           "UIEvents",
-           "UserTiming",
-           "WebAssembly",
-           "WebAudio",
-           "WebDriver",
-           "WebGL",
-           "WebIDL",
-           "WebSockets",
-           "WebVTT",
-           "Worker",
-           "XHR",
-           "XLink",
-           "XML",
-           "//AK",
-           "//Meta/gn/build/libs/skia",
-           "//Meta/gn/build/libs/vulkan",
-           "//Libraries/LibCore",
-           "//Libraries/LibCrypto",
-           "//Libraries/LibGfx",
-           "//Libraries/LibHTTP",
-           "//Libraries/LibIDL",
-           "//Libraries/LibIPC",
-           "//Libraries/LibJS",
-           "//Libraries/LibMedia",
-           "//Libraries/LibRegex",
-           "//Libraries/LibRequests",
-           "//Libraries/LibSyntax",
-           "//Libraries/LibTLS",
-           "//Libraries/LibTextCodec",
-           "//Libraries/LibURL",
-           "//Libraries/LibUnicode",
-           "//Libraries/LibWasm",
-           "//Libraries/LibXML",
-         ] + idl_sources_targets
+    ":all_generated",
+    "ARIA",
+    "Animations",
+    "Bindings",
+    "CSS",
+    "Clipboard",
+    "Cookie",
+    "CookieStore",
+    "Crypto",
+    "DOM",
+    "DOMURL",
+    "Encoding",
+    "EntriesAPI",
+    "EventTiming",
+    "Fetch",
+    "FileAPI",
+    "Geolocation",
+    "Geometry",
+    "HTML",
+    "HighResolutionTime",
+    "IndexedDB",
+    "Infra",
+    "Internals",
+    "IntersectionObserver",
+    "Layout",
+    "Loader",
+    "MathML",
+    "MediaCapabilitiesAPI",
+    "MediaSourceExtensions",
+    "MimeSniff",
+    "MixedContent",
+    "NavigationTiming",
+    "Page",
+    "Painting",
+    "PerformanceTimeline",
+    "PermissionsPolicy",
+    "Platform",
+    "ReferrerPolicy",
+    "RequestIdleCallback",
+    "ResizeObserver",
+    "SRI",
+    "SVG",
+    "SecureContexts",
+    "Selection",
+    "ServiceWorker",
+    "StorageAPI",
+    "Streams",
+    "UIEvents",
+    "UserTiming",
+    "WebAssembly",
+    "WebAudio",
+    "WebDriver",
+    "WebGL",
+    "WebIDL",
+    "WebSockets",
+    "WebVTT",
+    "Worker",
+    "XHR",
+    "XLink",
+    "XML",
+    "//AK",
+    "//Meta/gn/build/libs/skia",
+    "//Meta/gn/build/libs/vulkan",
+    "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
+    "//Libraries/LibGfx",
+    "//Libraries/LibHTTP",
+    "//Libraries/LibIDL",
+    "//Libraries/LibIPC",
+    "//Libraries/LibJS",
+    "//Libraries/LibMedia",
+    "//Libraries/LibRegex",
+    "//Libraries/LibRequests",
+    "//Libraries/LibSyntax",
+    "//Libraries/LibTLS",
+    "//Libraries/LibTextCodec",
+    "//Libraries/LibURL",
+    "//Libraries/LibUnicode",
+    "//Libraries/LibWasm",
+    "//Libraries/LibXML",
+  ]
+  deps += idl_sources_targets
 }
