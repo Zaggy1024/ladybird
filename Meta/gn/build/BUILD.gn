@@ -129,6 +129,10 @@ config("compiler_defaults") {
       "-Wno-implicit-const-int-float-conversion",
       "-Wno-vla-cxx-extension",
       "-Wno-unqualified-std-cast-call",
+
+      # Used for the #embed directive.
+      # FIXME: Remove this once #embed is no longer an extension.
+      "-Wno-c23-extensions",
     ]
   } else {
     cflags += [
@@ -136,12 +140,13 @@ config("compiler_defaults") {
       # lots of false positives.
       "-Wno-maybe-uninitialized",
 
-      # Disable -Wredundant-move on GCC>=9. GCC wants to remove std::move
-      # in code like "A foo(ConvertibleToA a) { return std::move(a); }",
-      # but this code does not compile (or uses the copy constructor
-      # instead) on clang<=3.8. Clang also has a -Wredundant-move, but it
-      # only fires when the types match exactly, so we can keep it here.
-      "-Wno-redundant-move",
+      # FIXME: These warnings trigger on Function and ByteBuffer in GCC (only when LTO is disabled...)
+      #        investigate this and maybe reenable them if they're not false positives/invalid.
+      "-Wno-array-bounds",
+      "-Wno-stringop-overflow",
+
+      # FIXME: This warning seems useful but has too many false positives with GCC 13.
+      "-Wno-dangling-reference",
 
       "-Wno-literal-suffix",
     ]
