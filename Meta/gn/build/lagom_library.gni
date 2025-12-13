@@ -1,0 +1,77 @@
+template("lagom_library") {
+  library_name = target_name
+  library_output_name = invoker.output_name
+  explicit_symbol_export_enabled = invoker.explicit_symbol_export
+
+  generate_explicit_symbol_export = "generate_${library_output_name}_explicit_symbol_export"
+  explicit_symbol_export_config = "${library_output_name}_explicit_symbol_export_config"
+
+  action(generate_explicit_symbol_export) {
+    script = "//Meta/gn/build/generate_export_header.py"
+
+    outputs = [ "$target_gen_dir/Export.h" ]
+    args = [
+      "-n",
+      library_name,
+      "-e",
+      "${library_output_name}_API",
+      "-p",
+      target_os,
+      "-o",
+      rebase_path(outputs[0], root_build_dir),
+    ]
+  }
+
+  config(explicit_symbol_export_config) {
+    include_dirs = [ "$target_gen_dir/.." ]
+  }
+
+  shared_library(library_name) {
+    cflags_cc = []
+    defines = []
+    include_dirs = []
+    public_deps = []
+    public_configs = []
+
+    forward_variables_from(invoker, "*")
+
+    if (explicit_symbol_export_enabled) {
+      export_define = library_name + "_EXPORTS"
+      # gn has no string_uppercase function?
+      export_define = string_replace(export_define, "a", "A")
+      export_define = string_replace(export_define, "b", "B")
+      export_define = string_replace(export_define, "c", "C")
+      export_define = string_replace(export_define, "d", "D")
+      export_define = string_replace(export_define, "e", "E")
+      export_define = string_replace(export_define, "f", "F")
+      export_define = string_replace(export_define, "g", "G")
+      export_define = string_replace(export_define, "h", "H")
+      export_define = string_replace(export_define, "i", "I")
+      export_define = string_replace(export_define, "j", "J")
+      export_define = string_replace(export_define, "k", "K")
+      export_define = string_replace(export_define, "l", "L")
+      export_define = string_replace(export_define, "m", "M")
+      export_define = string_replace(export_define, "n", "N")
+      export_define = string_replace(export_define, "o", "O")
+      export_define = string_replace(export_define, "p", "P")
+      export_define = string_replace(export_define, "q", "Q")
+      export_define = string_replace(export_define, "r", "R")
+      export_define = string_replace(export_define, "s", "S")
+      export_define = string_replace(export_define, "t", "T")
+      export_define = string_replace(export_define, "u", "U")
+      export_define = string_replace(export_define, "v", "V")
+      export_define = string_replace(export_define, "w", "W")
+      export_define = string_replace(export_define, "x", "X")
+      export_define = string_replace(export_define, "y", "Y")
+      export_define = string_replace(export_define, "z", "Z")
+
+      defines += [ export_define ]
+      public_deps += [ ":${generate_explicit_symbol_export}" ]
+      public_configs += [ ":${explicit_symbol_export_config}" ]
+
+      if (current_os != "win") {
+        cflags_cc += [ "-fvisibility=hidden" ]
+      }
+    }
+  }
+}
