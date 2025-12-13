@@ -9,7 +9,7 @@
 
 #include <AK/NonnullOwnPtr.h>
 #include <AK/String.h>
-#include <LibWebView/Forward.h>
+#include <LibWebView/Autocomplete.h>
 
 #include <QCompleter>
 #include <QListView>
