@@ -6,7 +6,11 @@ third_party_dependency("curl") {
     "z",
     "brotlidec",
     "brotlicommon",
+    "zstd",
     "nghttp2",
+    "ngtcp2",
+    "ngtcp2_crypto_ossl",
+    "nghttp3",
   ]
   if (current_os == "mac") {
     frameworks = [
