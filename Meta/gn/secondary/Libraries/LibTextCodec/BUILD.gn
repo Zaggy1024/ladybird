@@ -1,3 +1,5 @@
+import("//Meta/gn/build/lagom_library.gni")
+
 action("generate_encoding_indexes") {
   script = "//Meta/generate_encoding_indexes.py"
 
@@ -17,7 +19,7 @@ action("generate_encoding_indexes") {
   ]
 }
 
-shared_library("LibTextCodec") {
+lagom_library("LibTextCodec") {
   output_name = "textcodec"
   include_dirs = [
     "//Libraries",
@@ -32,4 +34,5 @@ shared_library("LibTextCodec") {
     "Encoder.cpp",
   ]
   sources += get_target_outputs(":generate_encoding_indexes")
+  explicit_symbol_export = true
 }

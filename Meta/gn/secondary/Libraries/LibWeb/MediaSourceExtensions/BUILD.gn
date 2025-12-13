@@ -3,11 +3,20 @@ source_set("MediaSourceExtensions") {
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
     "BufferedChangeEvent.cpp",
+    "BufferedChangeEvent.h",
+    "EventNames.cpp",
+    "EventNames.h",
     "ManagedMediaSource.cpp",
+    "ManagedMediaSource.h",
     "ManagedSourceBuffer.cpp",
+    "ManagedSourceBuffer.h",
     "MediaSource.cpp",
+    "MediaSource.h",
     "MediaSourceHandle.cpp",
+    "MediaSourceHandle.h",
     "SourceBuffer.cpp",
+    "SourceBuffer.h",
     "SourceBufferList.cpp",
+    "SourceBufferList.h",
   ]
 }

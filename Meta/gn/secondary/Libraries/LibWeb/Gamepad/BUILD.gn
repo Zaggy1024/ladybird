@@ -1,0 +1,22 @@
+source_set("Gamepad") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [
+    "//Libraries/LibWeb:all_generated",
+    "//Meta/gn/build/libs/sdl3",
+  ]
+  sources = [
+    "EventNames.cpp",
+    "EventNames.h",
+    "Gamepad.cpp",
+    "Gamepad.h",
+    "GamepadButton.cpp",
+    "GamepadButton.h",
+    "GamepadEvent.cpp",
+    "GamepadEvent.h",
+    "GamepadHapticActuator.cpp",
+    "GamepadHapticActuator.h",
+    "NavigatorGamepad.cpp",
+    "NavigatorGamepad.h",
+    "SDLGamepadForward.h",
+  ]
+}

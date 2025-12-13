@@ -6,6 +6,7 @@ unittest("test-js") {
   sources = [ "test-js.cpp" ]
   deps = [
     "//Libraries/LibFileSystem",
+    "//Libraries/LibGC",
     "//Libraries/LibJS",
   ]
 }

@@ -2,10 +2,17 @@ source_set("WebAssembly") {
   configs += [ "//Libraries/LibWeb:configs" ]
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
+    "Global.cpp",
+    "Global.h",
     "Instance.cpp",
+    "Instance.h",
     "Memory.cpp",
+    "Memory.h",
     "Module.cpp",
+    "Module.h",
     "Table.cpp",
+    "Table.h",
     "WebAssembly.cpp",
+    "WebAssembly.h",
   ]
 }

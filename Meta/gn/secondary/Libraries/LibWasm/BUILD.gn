@@ -1,3 +1,5 @@
+import("//Meta/gn/build/lagom_library.gni")
+
 declare_args() {
   # If true, download wasm spec tests from github.
   # Tests will be used by test-wasm to verify spec compliance
@@ -8,7 +10,7 @@ if (include_wasm_spec_tests) {
   # FIXME: Port wasm_spec_tests.cmake
 }
 
-shared_library("LibWasm") {
+lagom_library("LibWasm") {
   output_name = "wasm"
   include_dirs = [ "//Libraries" ]
   sources = [
@@ -25,4 +27,5 @@ shared_library("LibWasm") {
     "//Libraries/LibCore",
     "//Libraries/LibJS",
   ]
+  explicit_symbol_export = true
 }

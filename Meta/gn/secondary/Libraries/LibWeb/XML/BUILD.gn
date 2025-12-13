@@ -1,5 +1,10 @@
 source_set("XML") {
   configs += [ "//Libraries/LibWeb:configs" ]
   deps = [ "//Libraries/LibWeb:all_generated" ]
-  sources = [ "XMLDocumentBuilder.cpp" ]
+  sources = [
+    "XMLDocumentBuilder.cpp",
+    "XMLDocumentBuilder.h",
+    "XMLFragmentParser.cpp",
+    "XMLFragmentParser.h",
+  ]
 }

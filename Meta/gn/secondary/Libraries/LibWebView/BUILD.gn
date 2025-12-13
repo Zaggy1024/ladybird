@@ -1,43 +1,6 @@
 import("//Meta/gn/build/compiled_action.gni")
-import("//Meta/gn/build/download_cache.gni")
-import("//Meta/gn/build/download_file.gni")
 import("//Meta/gn/build/embed_as_string.gni")
-
-declare_args() {
-  # If true, Download public suffix list from GitHub.
-  # Data will be downloaded to $cache_path/PublicSuffix and used by LibPublicSuffix
-  enable_public_suffix_list_download = true
-}
-
-public_suffix_cache = cache_path + "PublicSuffix/"
-
-if (enable_public_suffix_list_download) {
-  download_file("public_suffix_list_download") {
-    version = "master"
-    url = "https://raw.githubusercontent.com/publicsuffix/list/" + version +
-          "/public_suffix_list.dat"
-    output = "$public_suffix_cache/public_suffix_list.dat"
-    version_file = public_suffix_cache + "version.txt"
-  }
-
-  action("generate_public_suffix_list_sources") {
-    script = "//Meta/generate_public_suffix_data.py"
-    deps = [ ":public_suffix_list_download" ]
-    outputs = [
-      "$target_gen_dir/PublicSuffixData.h",
-      "$target_gen_dir/PublicSuffixData.cpp",
-    ]
-    args = [
-      "-h",
-      rebase_path(outputs[0], root_build_dir),
-      "-c",
-      rebase_path(outputs[1], root_build_dir),
-      "-p",
-      rebase_path("$public_suffix_cache/public_suffix_list.dat",
-                  root_build_dir),
-    ]
-  }
-}
+import("//Meta/gn/build/lagom_library.gni")
 
 compiled_action("WebContentClientEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
@@ -76,6 +39,28 @@ compiled_action("WebDriverServerEndpoint") {
   tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
   inputs = [ "//Services/WebContent/WebDriverServer.ipc" ]
   outputs = [ "$root_gen_dir/WebContent/WebDriverServerEndpoint.h" ]
+  args = [
+    rebase_path(inputs[0], root_build_dir),
+    "-o",
+    rebase_path(outputs[0], root_build_dir),
+  ]
+}
+
+compiled_action("WebUIClientEndpoint") {
+  tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
+  inputs = [ "//Services/WebContent/WebUIClient.ipc" ]
+  outputs = [ "$root_gen_dir/WebContent/WebUIClientEndpoint.h" ]
+  args = [
+    rebase_path(inputs[0], root_build_dir),
+    "-o",
+    rebase_path(outputs[0], root_build_dir),
+  ]
+}
+
+compiled_action("WebUIServerEndpoint") {
+  tool = "//Meta/Lagom/Tools/CodeGenerators/IPCCompiler"
+  inputs = [ "//Services/WebContent/WebUIServer.ipc" ]
+  outputs = [ "$root_gen_dir/WebContent/WebUIServerEndpoint.h" ]
   args = [
     rebase_path(inputs[0], root_build_dir),
     "-o",
@@ -122,7 +107,7 @@ config("configs") {
   configs = [ "//AK:ak_headers" ]
 }
 
-shared_library("LibWebView") {
+lagom_library("LibWebView") {
   output_name = "webview"
   public_configs = [ ":configs" ]
   deps = [
@@ -133,37 +118,53 @@ shared_library("LibWebView") {
     ":WebDriverClientEndpoint",
     ":WebDriverServerEndpoint",
     ":generate_native_stylesheet_source",
+    "Plugins",
     "//AK",
-    "//Meta/gn/build/libs/sqlite3",
     "//Libraries/LibCore",
+    "//Libraries/LibDatabase",
+    "//Libraries/LibDevTools",
     "//Libraries/LibFileSystem",
     "//Libraries/LibGfx",
+    "//Libraries/LibHTTP",
     "//Libraries/LibIPC",
     "//Libraries/LibImageDecoderClient",
     "//Libraries/LibJS",
     "//Libraries/LibRequests",
     "//Libraries/LibSyntax",
+    "//Libraries/LibTextCodec",
     "//Libraries/LibURL",
     "//Libraries/LibUnicode",
     "//Libraries/LibWeb",
-    "Plugins",
+    "//Meta/gn/build/libs/sqlite3",
   ]
   sources = [
     "Application.cpp",
     "Attribute.cpp",
+    "Autocomplete.cpp",
     "BrowserProcess.cpp",
+    "ConsoleOutput.cpp",
     "CookieJar.cpp",
+    "DOMNodeProperties.cpp",
+    "HeadlessWebView.cpp",
     "HelperProcess.cpp",
+    "Menu.cpp",
+    "Mutation.cpp",
     "Process.cpp",
     "ProcessHandle.cpp",
     "ProcessManager.cpp",
     "SearchEngine.cpp",
+    "Settings.cpp",
+    "SiteIsolation.cpp",
     "SourceHighlighter.cpp",
+    "StorageJar.cpp",
     "URL.cpp",
     "UserAgent.cpp",
     "Utilities.cpp",
     "ViewImplementation.cpp",
     "WebContentClient.cpp",
+    "WebUI.cpp",
+    "WebUI/ProcessesUI.cpp",
+    "WebUI/SettingsUI.cpp",
   ]
   sources += get_target_outputs(":WebContentClientEndpoint") +
              get_target_outputs(":WebContentServerEndpoint") +
@@ -172,11 +173,5 @@ shared_library("LibWebView") {
              get_target_outputs(":UIProcessClientEndpoint") +
              get_target_outputs(":UIProcessServerEndpoint") +
              get_target_outputs(":generate_native_stylesheet_source")
-  if (enable_public_suffix_list_download) {
-    deps += [ ":generate_public_suffix_list_sources" ]
-    sources += get_target_outputs(":generate_public_suffix_list_sources")
-    defines = [ "ENABLE_PUBLIC_SUFFIX=1" ]
-  } else {
-    defines = [ "ENABLE_PUBLIC_SUFFIX=0" ]
-  }
+  explicit_symbol_export = true
 }

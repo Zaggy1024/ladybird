@@ -1,0 +1,13 @@
+import("//Meta/gn/build/lagom_library.gni")
+
+lagom_library("LibDNS") {
+  output_name = "dns"
+  include_dirs = [ "//Libraries" ]
+  sources = [ "Message.cpp" ]
+  deps = [
+    "//AK",
+    "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
+  ]
+  explicit_symbol_export = true
+}

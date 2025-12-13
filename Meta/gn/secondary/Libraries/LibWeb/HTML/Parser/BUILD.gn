@@ -3,12 +3,20 @@ source_set("Parser") {
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
     "Entities.cpp",
+    "Entities.h",
     "HTMLEncodingDetection.cpp",
+    "HTMLEncodingDetection.h",
     "HTMLParser.cpp",
+    "HTMLParser.h",
     "HTMLToken.cpp",
+    "HTMLToken.h",
     "HTMLTokenizer.cpp",
+    "HTMLTokenizer.h",
     "HTMLTokenizerHelpers.cpp",
+    "HTMLTokenizerHelpers.h",
     "ListOfActiveFormattingElements.cpp",
+    "ListOfActiveFormattingElements.h",
     "StackOfOpenElements.cpp",
+    "StackOfOpenElements.h",
   ]
 }

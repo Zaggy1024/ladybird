@@ -1,7 +1,14 @@
 shared_library("LibHTTP") {
   output_name = "http"
-  include_dirs = [ "//Libraries" ]
+  include_dirs = [
+    "//Libraries",
+    "$target_gen_dir/..",
+  ]
   sources = [
+    "Cache/CacheEntry.cpp",
+    "Cache/CacheIndex.cpp",
+    "Cache/DiskCache.cpp",
+    "Cache/Utilities.cpp",
     "Header.cpp",
     "HeaderList.cpp",
     "HTTP.cpp",
@@ -12,6 +19,12 @@ shared_library("LibHTTP") {
     "//AK",
     "//Libraries/LibCompress",
     "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
+    "//Libraries/LibDatabase",
+    "//Libraries/LibFileSystem",
+    "//Libraries/LibIPC",
+    "//Libraries/LibRegex",
+    "//Libraries/LibTextCodec",
     "//Libraries/LibTLS",
     "//Libraries/LibURL",
   ]

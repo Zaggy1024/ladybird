@@ -1,0 +1,15 @@
+source_set("ContentSecurityPolicy") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [
+    "Directives",
+    "//Libraries/LibWeb:all_generated",
+  ]
+  sources = [
+    "BlockingAlgorithms.cpp",
+    "Policy.cpp",
+    "PolicyList.cpp",
+    "SecurityPolicyViolationEvent.cpp",
+    "SerializedPolicy.cpp",
+    "Violation.cpp",
+  ]
+}

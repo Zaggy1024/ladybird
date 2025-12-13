@@ -1,0 +1,13 @@
+source_set("Compression") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [
+    "//Libraries/LibCompress",
+    "//Libraries/LibWeb:all_generated",
+  ]
+  sources = [
+    "CompressionStream.cpp",
+    "CompressionStream.h",
+    "DecompressionStream.cpp",
+    "DecompressionStream.h",
+  ]
+}

@@ -1,0 +1,26 @@
+source_set("Pattern") {
+  configs += [ "//Libraries/LibURL:configs" ]
+  sources = [
+    "Canonicalization.cpp",
+    "Canonicalization.h",
+    "Component.cpp",
+    "Component.h",
+    "ConstructorStringParser.cpp",
+    "ConstructorStringParser.h",
+    "Init.cpp",
+    "Init.h",
+    "Options.cpp",
+    "Options.h",
+    "Part.cpp",
+    "Part.h",
+    "Pattern.cpp",
+    "PatternError.h",
+    "Pattern.h",
+    "PatternParser.cpp",
+    "PatternParser.h",
+    "String.cpp",
+    "String.h",
+    "Tokenizer.cpp",
+    "Tokenizer.h",
+  ]
+}

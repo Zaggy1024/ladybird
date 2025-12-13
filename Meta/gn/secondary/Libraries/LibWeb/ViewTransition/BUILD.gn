@@ -1,0 +1,8 @@
+source_set("ViewTransition") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
+  sources = [
+    "ViewTransition.cpp",
+    "ViewTransition.h",
+  ]
+}

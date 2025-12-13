@@ -4,10 +4,13 @@ executable("js") {
   deps = [
     "//AK",
     "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
     "//Libraries/LibJS",
     "//Libraries/LibLine",
+    "//Libraries/LibUnicode",
     "//Libraries/LibMain",
     "//Libraries/LibTextCodec",
+    "//Libraries/LibGC",
   ]
 }
 

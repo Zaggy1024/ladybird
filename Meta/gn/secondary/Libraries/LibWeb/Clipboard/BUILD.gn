@@ -6,5 +6,9 @@ source_set("Clipboard") {
     "Clipboard.h",
     "ClipboardEvent.cpp",
     "ClipboardEvent.h",
+    "ClipboardItem.cpp",
+    "ClipboardItem.h",
+    "SystemClipboard.cpp",
+    "SystemClipboard.h",
   ]
 }

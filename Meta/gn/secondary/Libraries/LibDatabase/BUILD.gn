@@ -1,13 +1,13 @@
-shared_library("LibDatabase") {
+import("//Meta/gn/build/lagom_library.gni")
+
+lagom_library("LibDatabase") {
   output_name = "database"
-  include_dirs = [
-    "//Libraries",
-  ]
+  include_dirs = [ "//Libraries" ]
   deps = [
-    "//Meta/gn/build/libs/sqlite3",
+    "//AK",
     "//Libraries/LibCore",
+    "//Meta/gn/build/libs/sqlite3",
   ]
-  sources = [
-    "Database.cpp",
-  ]
+  sources = [ "Database.cpp" ]
+  explicit_symbol_export = true
 }

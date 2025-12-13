@@ -3,6 +3,12 @@ source_set("Encoding") {
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
     "TextDecoder.cpp",
+    "TextDecoder.h",
     "TextEncoder.cpp",
+    "TextEncoder.h",
+    "TextEncoderCommon.cpp",
+    "TextEncoderCommon.h",
+    "TextEncoderStream.cpp",
+    "TextEncoderStream.h",
   ]
 }

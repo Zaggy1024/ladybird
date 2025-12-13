@@ -2,6 +2,7 @@ shared_library("LibIDL") {
   output_name = "idl"
   include_dirs = [ "//Libraries" ]
   sources = [
+    "ExposedTo.cpp",
     "IDLParser.cpp",
     "Types.cpp",
   ]

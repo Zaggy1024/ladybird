@@ -2,8 +2,29 @@ source_set("Canvas") {
   configs += [ "//Libraries/LibWeb:configs" ]
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
+    "CanvasCompositing.h",
     "CanvasDrawImage.cpp",
+    "CanvasDrawImage.h",
+    "CanvasDrawPath.h",
+    "CanvasFillStrokeStyles.cpp",
+    "CanvasFillStrokeStyles.h",
+    "CanvasFilters.h",
+    "CanvasImageData.h",
+    "CanvasImageSmoothing.h",
     "CanvasPath.cpp",
+    "CanvasPath.h",
+    "CanvasPathDrawingStyles.h",
+    "CanvasRect.h",
+    "CanvasSettings.cpp",
+    "CanvasSettings.h",
+    "CanvasShadowStyles.h",
     "CanvasState.cpp",
+    "CanvasState.h",
+    "CanvasText.h",
+    "CanvasTextDrawingStyles.cpp",
+    "CanvasTextDrawingStyles.h",
+    "CanvasTransform.h",
+    "SerializeBitmap.cpp",
+    "SerializeBitmap.h",
   ]
 }

@@ -9,6 +9,7 @@ executable("WebWorker") {
     "//Meta/gn/build/libs/fontconfig",
     "//Libraries/LibCore",
     "//Libraries/LibFileSystem",
+    "//Libraries/LibGC",
     "//Libraries/LibGfx",
     "//Libraries/LibIPC",
     "//Libraries/LibImageDecoderClient",

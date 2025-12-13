@@ -5,6 +5,8 @@ shared_library("LibWebSocket") {
     "//AK",
     "//Libraries/LibCore",
     "//Libraries/LibCrypto",
+    "//Libraries/LibDNS",
+    "//Libraries/LibHTTP",
     "//Libraries/LibTLS",
     "//Libraries/LibURL",
   ]

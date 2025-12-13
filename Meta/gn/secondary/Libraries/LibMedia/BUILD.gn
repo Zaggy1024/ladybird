@@ -1,7 +1,8 @@
+import("//Meta/gn/build/lagom_library.gni")
 import("//Meta/gn/build/libs/ffmpeg/enable.gni")
 import("//Meta/gn/build/libs/pulse/enable.gni")
 
-shared_library("LibMedia") {
+lagom_library("LibMedia") {
   include_dirs = [ "//Libraries" ]
   sources = [
     "Audio/Loader.cpp",
@@ -31,6 +32,8 @@ shared_library("LibMedia") {
     sources += [
       "Audio/FFmpegLoader.cpp",
       "FFmpeg/FFmpegAudioDecoder.cpp",
+      "FFmpeg/FFmpegDemuxer.cpp",
+      "FFmpeg/FFmpegIOContext.cpp",
       "FFmpeg/FFmpegVideoDecoder.cpp",
     ]
   } else {
@@ -51,5 +54,6 @@ shared_library("LibMedia") {
     "//Libraries/LibThreading",
     "//Libraries/LibUnicode",
   ]
+  explicit_symbol_export = true
   output_name = "media"
 }

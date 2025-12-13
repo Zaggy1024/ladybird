@@ -2,10 +2,23 @@ source_set("ServiceWorker") {
   configs += [ "//Libraries/LibWeb:configs" ]
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
+    "CacheStorage.cpp",
+    "CacheStorage.h",
+    "EventNames.cpp",
+    "EventNames.h",
     "Job.cpp",
+    "Job.h",
     "Registration.cpp",
-    "ServiceWorker.cpp",
+    "Registration.h",
     "ServiceWorkerContainer.cpp",
+    "ServiceWorkerContainer.h",
+    "ServiceWorker.cpp",
+    "ServiceWorkerGlobalScope.cpp",
+    "ServiceWorkerGlobalScope.h",
+    "ServiceWorker.h",
+    "ServiceWorkerRecord.cpp",
+    "ServiceWorkerRecord.h",
     "ServiceWorkerRegistration.cpp",
+    "ServiceWorkerRegistration.h",
   ]
 }

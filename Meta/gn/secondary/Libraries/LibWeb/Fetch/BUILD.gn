@@ -7,12 +7,20 @@ source_set("Fetch") {
   ]
   sources = [
     "Body.cpp",
+    "Body.h",
     "BodyInit.cpp",
+    "BodyInit.h",
     "Enums.cpp",
+    "Enums.h",
     "FetchMethod.cpp",
+    "FetchMethod.h",
     "Headers.cpp",
+    "Headers.h",
     "HeadersIterator.cpp",
+    "HeadersIterator.h",
     "Request.cpp",
+    "Request.h",
     "Response.cpp",
+    "Response.h",
   ]
 }

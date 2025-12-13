@@ -1,0 +1,20 @@
+source_set("TrustedTypes") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
+  sources = [
+    "InjectionSink.cpp",
+    "InjectionSink.h",
+    "RequireTrustedTypesForDirective.cpp",
+    "RequireTrustedTypesForDirective.h",
+    "TrustedHTML.cpp",
+    "TrustedHTML.h",
+    "TrustedScript.cpp",
+    "TrustedScript.h",
+    "TrustedScriptURL.cpp",
+    "TrustedScriptURL.h",
+    "TrustedTypePolicy.cpp",
+    "TrustedTypePolicy.h",
+    "TrustedTypePolicyFactory.cpp",
+    "TrustedTypePolicyFactory.h",
+  ]
+}

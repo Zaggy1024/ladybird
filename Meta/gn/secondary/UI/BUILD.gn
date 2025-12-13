@@ -14,7 +14,6 @@ group("UI") {
 
 moc_qt_objects("generate_moc") {
   sources = [
-    "Qt/Application.h",
     "Qt/Autocomplete.h",
     "Qt/BrowserWindow.h",
     "Qt/EventLoopImplementationQtEventTarget.h",
@@ -71,7 +70,7 @@ executable("ladybird_executable") {
     "//Libraries/LibWeb",
     "//Libraries/LibWebView",
   ]
-  sources = [ ]
+  sources = []
 
   if (enable_qt) {
     configs += [ ":ladybird_qt_components" ]
@@ -85,6 +84,7 @@ executable("ladybird_executable") {
       "Qt/FindInPageWidget.cpp",
       "Qt/Icon.cpp",
       "Qt/LocationEdit.cpp",
+      "Qt/Menu.cpp",
       "Qt/Settings.cpp",
       "Qt/StringUtils.cpp",
       "Qt/TVGIconEngine.cpp",
@@ -183,9 +183,7 @@ executable("headless-browser") {
     "//Libraries/LibWebView",
   ]
   data_deps = ladybird_helper_processes
-  sources = [
-    "//Utilities/headless-browser.cpp",
-  ]
+  sources = [ "//Utilities/headless-browser.cpp" ]
 }
 
 fonts = [

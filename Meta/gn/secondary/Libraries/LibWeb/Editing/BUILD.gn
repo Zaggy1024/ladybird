@@ -1,0 +1,14 @@
+source_set("Editing") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [
+    "Internal",
+    "//Libraries/LibWeb:all_generated",
+  ]
+  sources = [
+    "CommandNames.cpp",
+    "CommandNames.h",
+    "Commands.cpp",
+    "Commands.h",
+    "ExecCommand.cpp",
+  ]
+}

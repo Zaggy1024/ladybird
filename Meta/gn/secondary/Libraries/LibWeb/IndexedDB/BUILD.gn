@@ -1,14 +1,35 @@
 source_set("IndexedDB") {
   configs += [ "//Libraries/LibWeb:configs" ]
 
-  deps = [ "//Libraries/LibWeb:all_generated" ]
+  deps = [
+    "Internal",
+    "//Libraries/LibWeb:all_generated",
+  ]
 
   sources = [
+    "ConnectionState.h",
+    "IDBCursor.cpp",
+    "IDBCursor.h",
+    "IDBCursorWithValue.h",
+    "IDBDatabase.cpp",
+    "IDBDatabase.h",
     "IDBFactory.cpp",
     "IDBFactory.h",
+    "IDBIndex.cpp",
+    "IDBIndex.h",
+    "IDBKeyRange.cpp",
+    "IDBKeyRange.h",
+    "IDBObjectStore.cpp",
+    "IDBObjectStore.h",
     "IDBOpenDBRequest.cpp",
     "IDBOpenDBRequest.h",
+    "IDBRecord.cpp",
+    "IDBRecord.h",
     "IDBRequest.cpp",
     "IDBRequest.h",
+    "IDBTransaction.cpp",
+    "IDBTransaction.h",
+    "IDBVersionChangeEvent.cpp",
+    "IDBVersionChangeEvent.h",
   ]
 }

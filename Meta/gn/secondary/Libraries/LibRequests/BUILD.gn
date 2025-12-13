@@ -27,17 +27,22 @@ shared_library("LibRequests") {
   include_dirs = [
     "//Libraries",
     "//Services",
+    "$target_gen_dir/..",
   ]
   deps = [
     ":RequestClientEndpoint",
     ":RequestServerEndpoint",
     "//AK",
     "//Libraries/LibCore",
+    "//Libraries/LibHTTP",
     "//Libraries/LibIPC",
   ]
   sources = [
+    "CacheSizes.cpp",
+    "NetworkError.h",
     "Request.cpp",
     "RequestClient.cpp",
+    "RequestTimingInfo.cpp",
     "WebSocket.cpp",
   ]
   sources += get_target_outputs(":RequestClientEndpoint") +

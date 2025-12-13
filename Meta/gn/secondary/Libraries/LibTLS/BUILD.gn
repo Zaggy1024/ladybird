@@ -10,5 +10,6 @@ shared_library("LibTLS") {
     "//Libraries/LibCore",
     "//Libraries/LibCrypto",
     "//Libraries/LibFileSystem",
+    "//Meta/gn/build/libs/openssl",
   ]
 }

@@ -1,0 +1,8 @@
+source_set("URLPattern") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
+  sources = [
+    "URLPattern.cpp",
+    "URLPattern.h",
+  ]
+}

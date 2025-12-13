@@ -6,6 +6,8 @@ source_set("ARIA") {
     "ARIAMixin.h",
     "AriaData.cpp",
     "AriaData.h",
+    "AttributeNames.cpp",
+    "AttributeNames.h",
     "RoleType.cpp",
     "RoleType.h",
     "Roles.cpp",

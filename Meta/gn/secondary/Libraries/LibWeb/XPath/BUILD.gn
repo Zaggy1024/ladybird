@@ -1,0 +1,19 @@
+source_set("XPath") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [
+    "//Libraries/LibWeb:all_generated",
+    "//Meta/gn/build/libs/libxml2",
+  ]
+  sources = [
+    "XPath.cpp",
+    "XPath.h",
+    "XPathEvaluator.cpp",
+    "XPathEvaluator.h",
+    "XPathExpression.cpp",
+    "XPathExpression.h",
+    "XPathNSResolver.cpp",
+    "XPathNSResolver.h",
+    "XPathResult.cpp",
+    "XPathResult.h",
+  ]
+}

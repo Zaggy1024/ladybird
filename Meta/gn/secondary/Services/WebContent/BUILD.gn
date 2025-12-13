@@ -1,15 +1,5 @@
-import("//UI/enable_qt.gni")
-import("//UI/link_qt.gni")
-import("//UI/moc_qt_objects.gni")
+import("//Meta/gn/build/compiled_action.gni")
 import("//Meta/gn/build/libs/pulse/enable.gni")
-
-moc_qt_objects("generate_moc") {
-  sources = [ "//UI/Qt/EventLoopImplementationQtEventTarget.h" ]
-}
-
-link_qt("WebContent_qt") {
-  qt_components = [ "Core" ]
-}
 
 executable("WebContent") {
   configs += [ "//UI:ladybird_config" ]
@@ -19,15 +9,16 @@ executable("WebContent") {
   ]
   deps = [
     "//AK",
-    "//Meta/gn/build/libs/fontconfig",
-    "//Meta/gn/build/libs/pulse",
     "//Libraries/LibCore",
+    "//Libraries/LibCrypto",
     "//Libraries/LibFileSystem",
+    "//Libraries/LibGC",
     "//Libraries/LibGfx",
     "//Libraries/LibIPC",
     "//Libraries/LibImageDecoderClient",
     "//Libraries/LibJS",
     "//Libraries/LibMain",
+    "//Libraries/LibMedia",
     "//Libraries/LibRequests",
     "//Libraries/LibURL",
     "//Libraries/LibWeb",
@@ -37,29 +28,31 @@ executable("WebContent") {
     "//Libraries/LibWebView:WebContentServerEndpoint",
     "//Libraries/LibWebView:WebDriverClientEndpoint",
     "//Libraries/LibWebView:WebDriverServerEndpoint",
+    "//Libraries/LibWebView:WebUIClientEndpoint",
+    "//Libraries/LibWebView:WebUIServerEndpoint",
+    "//Meta/gn/build/libs/fontconfig",
+    "//Meta/gn/build/libs/pulse",
   ]
   sources = [
-    "//Services/WebContent/ConnectionFromClient.cpp",
-    "//Services/WebContent/ConsoleGlobalEnvironmentExtensions.cpp",
-    "//Services/WebContent/PageClient.cpp",
-    "//Services/WebContent/PageHost.cpp",
-    "//Services/WebContent/WebContentConsoleClient.cpp",
-    "//Services/WebContent/WebDriverConnection.cpp",
+    "ConnectionFromClient.cpp",
+    "ConnectionFromClient.h",
+    "ConsoleGlobalEnvironmentExtensions.cpp",
+    "ConsoleGlobalEnvironmentExtensions.h",
+    "DevToolsConsoleClient.cpp",
+    "DevToolsConsoleClient.h",
+    "Forward.h",
+    "PageClient.cpp",
+    "PageClient.h",
+    "PageHost.cpp",
+    "PageHost.h",
+    "WebContentConsoleClient.cpp",
+    "WebContentConsoleClient.h",
+    "WebDriverConnection.cpp",
+    "WebDriverConnection.h",
+    "WebUIConnection.cpp",
+    "WebUIConnection.h",
     "main.cpp",
   ]
-
-  if (enable_qt) {
-    defines = [ "HAVE_QT" ]
-    configs += [ ":WebContent_qt" ]
-    sources += [
-      "//UI/Qt/EventLoopImplementationQt.cpp",
-      "//UI/Qt/EventLoopImplementationQtEventTarget.cpp",
-      "//UI/Qt/StringUtils.cpp",
-    ]
-
-    sources += get_target_outputs(":generate_moc")
-    deps += [ ":generate_moc" ]
-  }
 
   output_dir = "$root_out_dir/libexec"
 }

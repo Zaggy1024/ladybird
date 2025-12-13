@@ -1,4 +1,6 @@
-shared_library("LibTest") {
+import("//Meta/gn/build/lagom_library.gni")
+
+lagom_library("LibTest") {
   output_name = "test"
   include_dirs = [ "//Libraries" ]
   sources = [
@@ -23,13 +25,17 @@ shared_library("LibTest") {
   ]
 
   output_name = "test"
+  explicit_symbol_export = true
 
   testonly = true
 }
 
 source_set("test_main") {
   include_dirs = [ "//Libraries" ]
-  sources = [ "TestMain.cpp" ]
+  sources = [
+    "AssertionHandler.cpp",
+    "TestMain.cpp",
+  ]
   deps = [ "//AK" ]
   public_deps = [ ":LibTest" ]
   testonly = true

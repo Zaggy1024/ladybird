@@ -3,8 +3,16 @@ source_set("HTTP") {
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
     "Bodies.cpp",
+    "Bodies.h",
+    "CORS.cpp",
+    "CORS.h",
+    "MIME.cpp",
+    "MIME.h",
     "Requests.cpp",
+    "Requests.h",
     "Responses.cpp",
+    "Responses.h",
     "Statuses.cpp",
+    "Statuses.h",
   ]
 }

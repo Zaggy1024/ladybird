@@ -3,8 +3,15 @@ source_set("CustomElements") {
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
     "CustomElementDefinition.cpp",
+    "CustomElementDefinition.h",
     "CustomElementName.cpp",
+    "CustomElementName.h",
     "CustomElementReactionNames.cpp",
+    "CustomElementReactionNames.h",
+    "CustomElementReactionsStack.h",
     "CustomElementRegistry.cpp",
+    "CustomElementRegistry.h",
+    "CustomStateSet.cpp",
+    "CustomStateSet.h",
   ]
 }

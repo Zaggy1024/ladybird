@@ -1,5 +1,6 @@
 import("//Meta/gn/build/compiled_action.gni")
 import("//Meta/gn/build/embed_as_string.gni")
+import("//Meta/gn/build/lagom_library.gni")
 import("generate_idl_bindings.gni")
 import("idl_files.gni")
 
@@ -354,11 +355,12 @@ config("configs") {
   configs = [ "//AK:ak_headers" ]
 }
 
-shared_library("LibWeb") {
+lagom_library("LibWeb") {
   output_name = "web"
   public_configs = [ ":configs" ]
   sources = [
     "Dump.cpp",
+    "GraphemeEdgeTracker.cpp",
     "Namespace.cpp",
     "PixelUnits.cpp",
   ]
@@ -369,16 +371,23 @@ shared_library("LibWeb") {
     "Bindings",
     "CSS",
     "Clipboard",
+    "Compression",
+    "ContentSecurityPolicy",
     "Cookie",
     "CookieStore",
+    "CredentialManagement",
     "Crypto",
     "DOM",
     "DOMURL",
+    "Editing",
     "Encoding",
+    "EncryptedMediaExtensions",
     "EntriesAPI",
     "EventTiming",
     "Fetch",
     "FileAPI",
+    "GPC",
+    "Gamepad",
     "Geolocation",
     "Geometry",
     "HTML",
@@ -395,6 +404,7 @@ shared_library("LibWeb") {
     "MimeSniff",
     "MixedContent",
     "NavigationTiming",
+    "NotificationsAPI",
     "Page",
     "Painting",
     "PerformanceTimeline",
@@ -403,15 +413,20 @@ shared_library("LibWeb") {
     "ReferrerPolicy",
     "RequestIdleCallback",
     "ResizeObserver",
+    "ResourceTiming",
     "SRI",
     "SVG",
     "SecureContexts",
     "Selection",
+    "Serial",
     "ServiceWorker",
     "StorageAPI",
     "Streams",
+    "TrustedTypes",
     "UIEvents",
+    "URLPattern",
     "UserTiming",
+    "ViewTransition",
     "WebAssembly",
     "WebAudio",
     "WebDriver",
@@ -423,11 +438,11 @@ shared_library("LibWeb") {
     "XHR",
     "XLink",
     "XML",
+    "XPath",
     "//AK",
-    "//Meta/gn/build/libs/skia",
-    "//Meta/gn/build/libs/vulkan",
     "//Libraries/LibCore",
     "//Libraries/LibCrypto",
+    "//Libraries/LibGC",
     "//Libraries/LibGfx",
     "//Libraries/LibHTTP",
     "//Libraries/LibIDL",
@@ -443,6 +458,9 @@ shared_library("LibWeb") {
     "//Libraries/LibUnicode",
     "//Libraries/LibWasm",
     "//Libraries/LibXML",
+    "//Meta/gn/build/libs/skia",
+    "//Meta/gn/build/libs/vulkan",
   ]
   deps += idl_sources_targets
+  explicit_symbol_export = true
 }

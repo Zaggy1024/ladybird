@@ -1,3 +1,5 @@
+import("//Meta/gn/build/libs/vulkan/enable.gni")
+
 action("generate_tiff_sources") {
   script = "//Libraries/LibGfx/TIFFGenerator.py"
 
@@ -29,9 +31,14 @@ shared_library("LibGfx") {
     "BitmapSequence.cpp",
     "CMYKBitmap.cpp",
     "Color.cpp",
+    "ColorSpace.cpp",
+    "Cursor.cpp",
+    "Filter.cpp",
     "Font/Font.cpp",
     "Font/FontData.cpp",
     "Font/FontDatabase.cpp",
+    "Font/FontSupport.cpp",
+    "Font/PathFontProvider.cpp",
     "Font/Typeface.cpp",
     "Font/TypefaceSkia.cpp",
     "Font/WOFF/Loader.cpp",
@@ -58,10 +65,10 @@ shared_library("LibGfx") {
     "ImageFormats/WebPWriter.cpp",
     "ImageFormats/WebPWriterLossless.cpp",
     "ImmutableBitmap.cpp",
+    "PaintStyle.cpp",
     "Painter.cpp",
     "PainterSkia.cpp",
     "PaintingSurface.cpp",
-    "PaintStyle.cpp",
     "Palette.cpp",
     "Path.cpp",
     "PathSkia.cpp",
@@ -69,6 +76,8 @@ shared_library("LibGfx") {
     "Rect.cpp",
     "ShareableBitmap.cpp",
     "Size.cpp",
+    "SkiaBackendContext.cpp",
+    "SkiaUtils.cpp",
     "SystemTheme.cpp",
     "TextLayout.cpp",
     "Triangle.cpp",
@@ -80,21 +89,25 @@ shared_library("LibGfx") {
   deps = [
     ":generate_tiff_sources",
     "//AK",
-    "//Meta/gn/build/libs/avif",
-    "//Meta/gn/build/libs/harfbuzz",
-    "//Meta/gn/build/libs/jpeg",
-    "//Meta/gn/build/libs/jxl",
-    "//Meta/gn/build/libs/png",
-    "//Meta/gn/build/libs/skia",
-    "//Meta/gn/build/libs/webp",
-    "//Meta/gn/build/libs/woff2",
     "//Libraries/LibCompress",
     "//Libraries/LibCore",
     "//Libraries/LibCrypto",
     "//Libraries/LibFileSystem",
     "//Libraries/LibIPC",
     "//Libraries/LibTextCodec",
-    "//Libraries/LibURL",
     "//Libraries/LibUnicode",
+    "//Meta/gn/build/libs/avif",
+    "//Meta/gn/build/libs/harfbuzz",
+    "//Meta/gn/build/libs/jpeg",
+    "//Meta/gn/build/libs/jxl",
+    "//Meta/gn/build/libs/png",
+    "//Meta/gn/build/libs/skia",
+    "//Meta/gn/build/libs/vulkan",
+    "//Meta/gn/build/libs/webp",
+    "//Meta/gn/build/libs/woff2",
   ]
+
+  if (enable_vulkan) {
+    sources += [ "VulkanContext.cpp" ]
+  }
 }

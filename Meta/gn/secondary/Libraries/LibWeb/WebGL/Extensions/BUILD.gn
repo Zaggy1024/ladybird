@@ -1,0 +1,33 @@
+source_set("Extensions") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [
+    "//Libraries/LibWeb:all_generated",
+    "//Meta/gn/build/libs/angle",
+  ]
+  sources = [
+    "ANGLEInstancedArrays.cpp",
+    "ANGLEInstancedArrays.h",
+    "EXTBlendMinMax.cpp",
+    "EXTBlendMinMax.h",
+    "EXTColorBufferFloat.cpp",
+    "EXTColorBufferFloat.h",
+    "EXTRenderSnorm.cpp",
+    "EXTRenderSnorm.h",
+    "EXTTextureFilterAnisotropic.cpp",
+    "EXTTextureFilterAnisotropic.h",
+    "EXTTextureNorm16.cpp",
+    "EXTTextureNorm16.h",
+    "OESStandardDerivatives.cpp",
+    "OESStandardDerivatives.h",
+    "OESVertexArrayObject.cpp",
+    "OESVertexArrayObject.h",
+    "WebGLCompressedTextureS3tc.cpp",
+    "WebGLCompressedTextureS3tc.h",
+    "WebGLCompressedTextureS3tcSrgb.cpp",
+    "WebGLCompressedTextureS3tcSrgb.h",
+    "WebGLDrawBuffers.cpp",
+    "WebGLDrawBuffers.h",
+    "WebGLVertexArrayObjectOES.cpp",
+    "WebGLVertexArrayObjectOES.h",
+  ]
+}

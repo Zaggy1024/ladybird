@@ -3,6 +3,14 @@ source_set("Internals") {
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
     "InternalAnimationTimeline.cpp",
+    "InternalAnimationTimeline.h",
+    "InternalGamepad.cpp",
+    "InternalGamepad.h",
     "Internals.cpp",
+    "Internals.h",
+    "InternalsBase.cpp",
+    "InternalsBase.h",
+    "WebUI.cpp",
+    "WebUI.h",
   ]
 }

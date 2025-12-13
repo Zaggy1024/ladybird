@@ -3,24 +3,31 @@ executable("RequestServer") {
   include_dirs = [
     "//Libraries",
     "//Services",
+    # Include the gen dir because we transitively include export headers.
+    "$target_gen_dir/..",
   ]
   deps = [
     "//AK",
     "//Meta/gn/build/libs/curl",
     "//Libraries/LibCore",
     "//Libraries/LibCrypto",
-    "//Libraries/LibFileSystem",
+    "//Libraries/LibDNS",
+    "//Libraries/LibHTTP",
     "//Libraries/LibIPC",
     "//Libraries/LibMain",
-    "//Libraries/LibRequests:RequestClientEndpoint",
-    "//Libraries/LibRequests:RequestServerEndpoint",
+    "//Libraries/LibRequests",
     "//Libraries/LibTLS",
-    "//Libraries/LibThreading",
-    "//Libraries/LibURL",
     "//Libraries/LibWebSocket",
+    "//Libraries/LibURL",
+    "//Libraries/LibTextCodec",
   ]
   sources = [
-    "//Services/RequestServer/ConnectionFromClient.cpp",
+    "ConnectionFromClient.cpp",
+    "CURL.cpp",
+    "Request.cpp",
+    "RequestPipe.cpp",
+    "Resolver.cpp",
+    "WebSocketImplCurl.cpp",
     "main.cpp",
   ]
   output_dir = "$root_out_dir/libexec"

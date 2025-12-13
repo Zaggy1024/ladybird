@@ -3,12 +3,25 @@ source_set("WebIDL") {
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
     "AbstractOperations.cpp",
+    "AbstractOperations.h",
+    "AsyncIterator.cpp",
+    "AsyncIterator.h",
     "Buffers.cpp",
+    "Buffers.h",
+    "CachedAttribute.h",
     "CallbackType.cpp",
+    "CallbackType.h",
     "DOMException.cpp",
+    "DOMException.h",
+    "ExceptionOr.h",
     "ObservableArray.cpp",
+    "ObservableArray.h",
     "OverloadResolution.cpp",
+    "OverloadResolution.h",
     "Promise.cpp",
+    "Promise.h",
     "Tracing.cpp",
+    "Tracing.h",
+    "Types.h",
   ]
 }

@@ -5,9 +5,14 @@ import("//Meta/gn/build/libs/vulkan/enable.gni")
 shared_library("minimal") {
   output_name = "core-minimal"
 
-  include_dirs = [ "//Libraries" ]
+  include_dirs = [
+    "//Libraries",
+    "$target_gen_dir/..",
+  ]
 
   sources = [
+    "AddressInfoVector.cpp",
+    "AddressInfoVector.h",
     "ArgsParser.cpp",
     "ArgsParser.h",
     "DirIterator.cpp",
@@ -21,22 +26,39 @@ shared_library("minimal") {
     "File.cpp",
     "File.h",
     "Forward.h",
+    "Process.h",
+    "SocketAddress.cpp",
+    "SocketAddress.h",
     "StandardPaths.cpp",
     "StandardPaths.h",
-    "System.cpp",
     "System.h",
     "Version.cpp",
     "Version.h",
   ]
 
+  if (current_os == "win") {
+    sources += [
+      "ProcessWindows.cpp",
+      "SocketpairWindows.cpp",
+      "SystemWindows.cpp",
+    ]
+  } else {
+    sources += [
+      "Process.cpp",
+      "System.cpp",
+    ]
+  }
+
   deps = [ "//AK" ]
 }
 
 source_set("sources") {
-  include_dirs = [ "//Libraries" ]
+  include_dirs = [
+    "//Libraries",
+    "$target_gen_dir/..",
+  ]
   deps = [ "//AK" ]
   sources = [
-    "AnonymousBuffer.cpp",
     "AnonymousBuffer.h",
     "ConfigFile.cpp",
     "ConfigFile.h",
@@ -48,7 +70,6 @@ source_set("sources") {
     "EventLoop.h",
     "EventLoopImplementation.cpp",
     "EventLoopImplementation.h",
-    "EventLoopImplementationUnix.cpp",
     "EventLoopImplementationUnix.h",
     "EventReceiver.cpp",
     "EventReceiver.h",
@@ -65,26 +86,46 @@ source_set("sources") {
     "Process.h",
     "Promise.h",
     "Proxy.h",
+    "ReportTime.cpp",
+    "ReportTime.h",
     "Resource.cpp",
     "Resource.h",
     "ResourceImplementation.cpp",
+    "ResourceImplementation.h",
     "ResourceImplementationFile.cpp",
+    "ResourceImplementationFile.h",
     "SharedCircularQueue.h",
-    "Socket.cpp",
     "Socket.h",
     "SocketAddress.h",
     "SystemServerTakeover.cpp",
     "SystemServerTakeover.h",
-    "TCPServer.cpp",
     "TCPServer.h",
     "ThreadEventQueue.cpp",
     "ThreadEventQueue.h",
     "ThreadedPromise.h",
     "Timer.cpp",
     "Timer.h",
-    "UDPServer.cpp",
     "UDPServer.h",
   ]
+
+  if (current_os == "win") {
+    sources += [
+      "AnonymousBufferWindows.cpp",
+      "EventLoopImplementationWindows.cpp",
+      "SocketWindows.cpp",
+      "TCPServerWindows.cpp",
+      "UDPServerWindows.cpp",
+    ]
+  } else {
+    sources += [
+      "AnonymousBuffer.cpp",
+      "EventLoopImplementationUnix.cpp",
+      "Socket.cpp",
+      "TCPServer.cpp",
+      "UDPServer.cpp",
+    ]
+  }
+
   if (current_os != "android") {
     sources += [
       "LocalServer.cpp",
@@ -180,10 +221,10 @@ shared_library("LibCore") {
     ":metal",
     ":sources",
     ":timezonewatcher",
-    "//Meta/gn/build/libs/crypt",
-    "//Meta/gn/build/libs/pthread",
     "//Libraries/LibURL",
     "//Libraries/LibUnicode",
+    "//Meta/gn/build/libs/crypt",
+    "//Meta/gn/build/libs/pthread",
   ]
 
   public_deps = [ ":minimal" ]

@@ -1,15 +1,30 @@
-shared_library("LibRegex") {
+import("//Meta/gn/build/lagom_library.gni")
+
+lagom_library("LibRegex") {
   output_name = "regex"
   include_dirs = [ "//Libraries" ]
   sources = [
+    "Forward.h",
+    "Regex.h",
     "RegexByteCode.cpp",
+    "RegexByteCode.h",
+    "RegexBytecodeStreamOptimizer.h",
+    "RegexDebug.h",
+    "RegexDefs.h",
+    "RegexError.h",
     "RegexLexer.cpp",
+    "RegexLexer.h",
+    "RegexMatch.h",
     "RegexMatcher.cpp",
+    "RegexMatcher.h",
     "RegexOptimizer.cpp",
+    "RegexOptions.h",
     "RegexParser.cpp",
+    "RegexParser.h",
   ]
   deps = [
     "//AK",
     "//Libraries/LibUnicode",
   ]
+  explicit_symbol_export = true
 }

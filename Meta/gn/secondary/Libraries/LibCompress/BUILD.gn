@@ -3,6 +3,7 @@ shared_library("LibCompress") {
   include_dirs = [ "//Libraries" ]
   sources = [
     "Deflate.cpp",
+    "GenericZlib.cpp",
     "Gzip.cpp",
     "PackBitsDecoder.cpp",
     "Zlib.cpp",
@@ -11,5 +12,6 @@ shared_library("LibCompress") {
     "//AK",
     "//Libraries/LibCore",
     "//Libraries/LibCrypto",
+    "//Meta/gn/build/libs/zlib",
   ]
 }

@@ -2,7 +2,15 @@ source_set("MathML") {
   configs += [ "//Libraries/LibWeb:configs" ]
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
+    "AttributeNames.cpp",
+    "AttributeNames.h",
     "MathMLElement.cpp",
+    "MathMLElement.h",
+    "MathMLMiElement.cpp",
+    "MathMLMiElement.h",
+    "MathMLMspaceElement.cpp",
+    "MathMLMspaceElement.h",
     "TagNames.cpp",
+    "TagNames.h",
   ]
 }

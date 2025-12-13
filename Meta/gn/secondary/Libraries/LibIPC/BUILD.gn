@@ -1,7 +1,13 @@
 shared_library("LibIPC") {
   output_name = "ipc"
-  include_dirs = [ "//Libraries" ]
+  include_dirs = [
+    "//Libraries",
+    # Include the gen dir because we transitively include export headers.
+    "$target_gen_dir/..",
+  ]
   sources = [
+    "AutoCloseFileDescriptor.cpp",
+    "AutoCloseFileDescriptor.h",
     "Concepts.h",
     "Connection.cpp",
     "Connection.h",
@@ -13,12 +19,26 @@ shared_library("LibIPC") {
     "Encoder.h",
     "File.h",
     "Forward.h",
-    "Message.cpp",
     "Message.h",
     "MultiServer.h",
     "SingleServer.h",
     "Stub.h",
   ]
+
+  if (current_os == "win") {
+    sources += [
+      "FileWindows.cpp",
+      "MessageWindows.cpp",
+      "TransportSocketWindows.cpp",
+    ]
+  } else {
+    sources += [
+      "File.cpp",
+      "Message.cpp",
+      "TransportSocket.cpp",
+    ]
+  }
+
   deps = [
     "//AK",
     "//Libraries/LibCore",

@@ -2,6 +2,7 @@ source_set("Bindings") {
   configs += [ "//Libraries/LibWeb:configs" ]
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
+    "AgentType.h",
     "AudioConstructor.cpp",
     "AudioConstructor.h",
     "ExceptionOrUtils.h",
@@ -17,7 +18,11 @@ source_set("Bindings") {
     "OptionConstructor.h",
     "PlatformObject.cpp",
     "PlatformObject.h",
+    "PrincipalHostDefined.cpp",
+    "PrincipalHostDefined.h",
     "Serializable.h",
+    "SyntheticHostDefined.cpp",
+    "SyntheticHostDefined.h",
     "Transferable.h",
   ]
 }

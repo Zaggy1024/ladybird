@@ -1,0 +1,14 @@
+source_set("CredentialManagement") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
+  sources = [
+    "Credential.cpp",
+    "Credential.h",
+    "CredentialsContainer.cpp",
+    "CredentialsContainer.h",
+    "FederatedCredential.cpp",
+    "FederatedCredential.h",
+    "PasswordCredential.cpp",
+    "PasswordCredential.h",
+  ]
+}

@@ -1,12 +1,36 @@
-shared_library("LibJS") {
+import("//Meta/gn/build/lagom_library.gni")
+
+action("generate_libjs_bytecode_defs") {
+  script = "//Meta/generate-libjs-bytecode-def-derived.py"
+
+  outputs = [
+    "$target_gen_dir/Bytecode/Op.h",
+    "$target_gen_dir/Bytecode/Op.cpp",
+    "$target_gen_dir/Bytecode/OpCodes.h",
+  ]
+  args = [
+    "-h",
+    rebase_path(outputs[0], root_build_dir),
+    "-c",
+    rebase_path(outputs[1], root_build_dir),
+    "-x",
+    rebase_path(outputs[2], root_build_dir),
+    "-i",
+    rebase_path("//Libraries/LibJS/Bytecode/Bytecode.def", root_build_dir),
+  ]
+}
+
+lagom_library("LibJS") {
   output_name = "js"
   include_dirs = [ "//Libraries" ]
   cflags_cc = [ "-fno-omit-frame-pointer" ]
   deps = [
+    ":generate_libjs_bytecode_defs",
     "//AK",
     "//Libraries/LibCore",
     "//Libraries/LibCrypto",
     "//Libraries/LibFileSystem",
+    "//Libraries/LibGC",
     "//Libraries/LibRegex",
     "//Libraries/LibSyntax",
     "//Libraries/LibUnicode",
@@ -54,6 +78,9 @@ shared_library("LibJS") {
     "Runtime/ArrayIterator.cpp",
     "Runtime/ArrayIteratorPrototype.cpp",
     "Runtime/ArrayPrototype.cpp",
+    "Runtime/AsyncDisposableStack.cpp",
+    "Runtime/AsyncDisposableStackConstructor.cpp",
+    "Runtime/AsyncDisposableStackPrototype.cpp",
     "Runtime/AsyncFromSyncIterator.cpp",
     "Runtime/AsyncFromSyncIteratorPrototype.cpp",
     "Runtime/AsyncFunctionConstructor.cpp",
@@ -74,6 +101,7 @@ shared_library("LibJS") {
     "Runtime/BooleanPrototype.cpp",
     "Runtime/BoundFunction.cpp",
     "Runtime/Completion.cpp",
+    "Runtime/CompletionCell.cpp",
     "Runtime/ConsoleObject.cpp",
     "Runtime/ConsoleObjectPrototype.cpp",
     "Runtime/DataView.cpp",
@@ -104,6 +132,7 @@ shared_library("LibJS") {
     "Runtime/GeneratorFunctionPrototype.cpp",
     "Runtime/GeneratorObject.cpp",
     "Runtime/GeneratorPrototype.cpp",
+    "Runtime/GeneratorResult.cpp",
     "Runtime/GlobalEnvironment.cpp",
     "Runtime/GlobalObject.cpp",
     "Runtime/IndexedProperties.cpp",
@@ -165,6 +194,7 @@ shared_library("LibJS") {
     "Runtime/ModuleEnvironment.cpp",
     "Runtime/ModuleNamespaceObject.cpp",
     "Runtime/NativeFunction.cpp",
+    "Runtime/NativeJavaScriptBackedFunction.cpp",
     "Runtime/NumberConstructor.cpp",
     "Runtime/NumberObject.cpp",
     "Runtime/NumberPrototype.cpp",
@@ -185,6 +215,7 @@ shared_library("LibJS") {
     "Runtime/PropertyDescriptor.cpp",
     "Runtime/ProxyConstructor.cpp",
     "Runtime/ProxyObject.cpp",
+    "Runtime/RawJSONObject.cpp",
     "Runtime/Realm.cpp",
     "Runtime/Reference.cpp",
     "Runtime/ReflectObject.cpp",
@@ -205,6 +236,7 @@ shared_library("LibJS") {
     "Runtime/Shape.cpp",
     "Runtime/SharedArrayBufferConstructor.cpp",
     "Runtime/SharedArrayBufferPrototype.cpp",
+    "Runtime/SharedFunctionInstanceData.cpp",
     "Runtime/StringConstructor.cpp",
     "Runtime/StringIterator.cpp",
     "Runtime/StringIteratorPrototype.cpp",
@@ -217,7 +249,37 @@ shared_library("LibJS") {
     "Runtime/SymbolConstructor.cpp",
     "Runtime/SymbolObject.cpp",
     "Runtime/SymbolPrototype.cpp",
+    "Runtime/Temporal/AbstractOperations.cpp",
+    "Runtime/Temporal/Calendar.cpp",
+    "Runtime/Temporal/DateEquations.cpp",
+    "Runtime/Temporal/Duration.cpp",
+    "Runtime/Temporal/DurationConstructor.cpp",
+    "Runtime/Temporal/DurationPrototype.cpp",
+    "Runtime/Temporal/ISO8601.cpp",
+    "Runtime/Temporal/Instant.cpp",
+    "Runtime/Temporal/InstantConstructor.cpp",
+    "Runtime/Temporal/InstantPrototype.cpp",
+    "Runtime/Temporal/Now.cpp",
+    "Runtime/Temporal/PlainDate.cpp",
+    "Runtime/Temporal/PlainDateConstructor.cpp",
+    "Runtime/Temporal/PlainDatePrototype.cpp",
+    "Runtime/Temporal/PlainDateTime.cpp",
+    "Runtime/Temporal/PlainDateTimeConstructor.cpp",
+    "Runtime/Temporal/PlainDateTimePrototype.cpp",
+    "Runtime/Temporal/PlainMonthDay.cpp",
+    "Runtime/Temporal/PlainMonthDayConstructor.cpp",
+    "Runtime/Temporal/PlainMonthDayPrototype.cpp",
+    "Runtime/Temporal/PlainTime.cpp",
+    "Runtime/Temporal/PlainTimeConstructor.cpp",
+    "Runtime/Temporal/PlainTimePrototype.cpp",
+    "Runtime/Temporal/PlainYearMonth.cpp",
+    "Runtime/Temporal/PlainYearMonthConstructor.cpp",
+    "Runtime/Temporal/PlainYearMonthPrototype.cpp",
     "Runtime/Temporal/Temporal.cpp",
+    "Runtime/Temporal/TimeZone.cpp",
+    "Runtime/Temporal/ZonedDateTime.cpp",
+    "Runtime/Temporal/ZonedDateTimeConstructor.cpp",
+    "Runtime/Temporal/ZonedDateTimePrototype.cpp",
     "Runtime/TypedArray.cpp",
     "Runtime/TypedArrayConstructor.cpp",
     "Runtime/TypedArrayPrototype.cpp",
@@ -242,4 +304,6 @@ shared_library("LibJS") {
     "SyntheticModule.cpp",
     "Token.cpp",
   ]
+  sources += get_target_outputs(":generate_libjs_bytecode_defs")
+  explicit_symbol_export = true
 }

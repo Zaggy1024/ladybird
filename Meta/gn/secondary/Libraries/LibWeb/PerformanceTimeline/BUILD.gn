@@ -3,8 +3,15 @@ source_set("PerformanceTimeline") {
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
     "EntryTypes.cpp",
+    "EntryTypes.h",
+    "EventNames.cpp",
+    "EventNames.h",
     "PerformanceEntry.cpp",
+    "PerformanceEntry.h",
+    "PerformanceEntryTuple.h",
     "PerformanceObserver.cpp",
     "PerformanceObserverEntryList.cpp",
+    "PerformanceObserverEntryList.h",
+    "PerformanceObserver.h",
   ]
 }

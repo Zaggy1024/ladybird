@@ -1,0 +1,10 @@
+source_set("Serial") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
+  sources = [
+    "Serial.cpp",
+    "Serial.h",
+    "SerialPort.cpp",
+    "SerialPort.h",
+  ]
+}

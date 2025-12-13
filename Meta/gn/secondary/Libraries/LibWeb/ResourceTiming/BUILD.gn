@@ -1,0 +1,8 @@
+source_set("ResourceTiming") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
+  sources = [
+    "PerformanceResourceTiming.cpp",
+    "PerformanceResourceTiming.h",
+  ]
+}

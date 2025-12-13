@@ -1,0 +1,26 @@
+source_set("Internal") {
+  configs += [ "//Libraries/LibWeb:configs" ]
+  deps = [ "//Libraries/LibWeb:all_generated" ]
+  sources = [
+    "Algorithms.cpp",
+    "Algorithms.h",
+    "ConnectionQueueHandler.h",
+    "Database.cpp",
+    "Database.h",
+    "IDBDatabaseObserver.cpp",
+    "IDBDatabaseObserver.h",
+    "IDBRequestObserver.cpp",
+    "IDBRequestObserver.h",
+    "IDBTransactionObserver.cpp",
+    "IDBTransactionObserver.h",
+    "Index.cpp",
+    "Index.h",
+    "Key.cpp",
+    "Key.h",
+    "KeyGenerator.h",
+    "ObjectStore.cpp",
+    "ObjectStore.h",
+    "RequestList.cpp",
+    "RequestList.h",
+  ]
+}

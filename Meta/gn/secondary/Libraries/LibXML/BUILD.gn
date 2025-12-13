@@ -1,4 +1,6 @@
-shared_library("LibXML") {
+import("//Meta/gn/build/lagom_library.gni")
+
+lagom_library("LibXML") {
   output_name = "xml"
   include_dirs = [ "//Libraries" ]
   sources = [
@@ -9,4 +11,5 @@ shared_library("LibXML") {
     "//AK",
     "//Libraries/LibCore",
   ]
+  explicit_symbol_export = true
 }

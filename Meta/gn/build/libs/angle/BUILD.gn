@@ -1,0 +1,9 @@
+import("//Meta/gn/build/libs/third_party.gni")
+
+third_party_dependency("angle") {
+  libs = [
+    ":ANGLE.a",
+    "EGL",
+    "GLESv2_angle",
+  ]
+}

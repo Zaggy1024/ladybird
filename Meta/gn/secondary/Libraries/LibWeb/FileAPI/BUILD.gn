@@ -3,9 +3,16 @@ source_set("FileAPI") {
   deps = [ "//Libraries/LibWeb:all_generated" ]
   sources = [
     "Blob.cpp",
+    "Blob.h",
     "BlobURLStore.cpp",
+    "BlobURLStore.h",
     "File.cpp",
+    "File.h",
     "FileList.cpp",
+    "FileList.h",
     "FileReader.cpp",
+    "FileReader.h",
+    "FileReaderSync.cpp",
+    "FileReaderSync.h",
   ]
 }

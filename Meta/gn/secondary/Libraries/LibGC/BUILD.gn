@@ -1,0 +1,25 @@
+import("//Meta/gn/build/lagom_library.gni")
+
+lagom_library("LibGC") {
+  output_name = "gc"
+  include_dirs = [ "//Libraries" ]
+  sources = [
+    "BlockAllocator.cpp",
+    "Cell.cpp",
+    "CellAllocator.cpp",
+    "ConservativeVector.cpp",
+    "ForeignCell.cpp",
+    "Root.cpp",
+    "RootHashMap.cpp",
+    "RootVector.cpp",
+    "Heap.cpp",
+    "HeapBlock.cpp",
+    "WeakBlock.cpp",
+    "WeakContainer.cpp",
+  ]
+  deps = [
+    "//AK",
+    "//Libraries/LibCore",
+  ]
+  explicit_symbol_export = true
+}
