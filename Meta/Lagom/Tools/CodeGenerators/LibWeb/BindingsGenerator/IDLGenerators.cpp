@@ -96,6 +96,7 @@ static bool is_platform_object(Type const& type)
         "KeyframeEffect"sv,
         "MediaKeySystemAccess"sv,
         "MediaList"sv,
+        "MediaSource"sv,
         "Memory"sv,
         "MessagePort"sv,
         "Module"sv,
