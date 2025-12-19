@@ -22,6 +22,8 @@ enum CanPlayTypeResult {
     "probably"
 };
 
+typedef (MediaStream or MediaSource or Blob) MediaProvider;
+
 // https://html.spec.whatwg.org/multipage/media.html#htmlmediaelement
 [Exposed=Window]
 interface HTMLMediaElement : HTMLElement {

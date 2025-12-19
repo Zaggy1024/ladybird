@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "LibWeb/Bindings/MediaSourcePrototype.h"
 #include <LibWeb/DOM/EventTarget.h>
 
 namespace Web::MediaSourceExtensions {
@@ -17,6 +18,8 @@ class MediaSource : public DOM::EventTarget {
 
 public:
     [[nodiscard]] static WebIDL::ExceptionOr<GC::Ref<MediaSource>> construct_impl(JS::Realm&);
+
+    Bindings::ReadyState ready_state() const;
 
     // https://w3c.github.io/media-source/#dom-mediasource-canconstructindedicatedworker
     static bool can_construct_in_dedicated_worker(JS::VM&) { return true; }
@@ -40,6 +43,7 @@ protected:
     virtual void initialize(JS::Realm&) override;
 
 private:
+    Bindings::ReadyState m_ready_state;
 };
 
 }
