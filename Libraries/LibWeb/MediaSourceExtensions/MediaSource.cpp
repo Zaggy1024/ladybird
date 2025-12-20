@@ -6,11 +6,14 @@
 
 #include <LibWeb/Bindings/Intrinsics.h>
 #include <LibWeb/Bindings/MediaSourcePrototype.h>
+#include <LibWeb/DOM/Event.h>
 #include <LibWeb/MediaSourceExtensions/EventNames.h>
 #include <LibWeb/MediaSourceExtensions/MediaSource.h>
 #include <LibWeb/MimeSniff/MimeType.h>
 
 namespace Web::MediaSourceExtensions {
+    
+using Bindings::ReadyState;
 
 GC_DEFINE_ALLOCATOR(MediaSource);
 
@@ -30,6 +33,37 @@ void MediaSource::initialize(JS::Realm& realm)
 {
     WEB_SET_PROTOTYPE_FOR_INTERFACE(MediaSource);
     Base::initialize(realm);
+}
+
+ReadyState MediaSource::ready_state() const
+{
+    return m_ready_state;
+}
+
+void MediaSource::set_ready_state(ReadyState state)
+{
+    auto& realm = this->realm();
+
+    auto old_state = m_ready_state;
+    m_ready_state = state;
+
+    // sourceopen: Dispatched when MediaSource's readyState transitions from "closed" to "open" or from "ended" to "open". 
+    if ((old_state == ReadyState::Closed || old_state == ReadyState::Ended) && state == ReadyState::Open) {
+        auto event = DOM::Event::create(realm, EventNames::sourceopen);
+        dispatch_event(event);
+    }
+
+    // sourceended: Dispatched when MediaSource's readyState transitions from "open" to "ended". 
+    if (old_state == ReadyState::Open && state == ReadyState::Ended) {
+        auto event = DOM::Event::create(realm, EventNames::sourceended);
+        dispatch_event(event);
+    }
+
+    // sourceclose: Dispatched when MediaSource's readyState transitions from "open" to "closed" or "ended" to "closed". 
+    if ((old_state == ReadyState::Open || old_state == ReadyState::Ended) && state == ReadyState::Closed) {
+        auto event = DOM::Event::create(realm, EventNames::sourceclose);
+        dispatch_event(event);
+    }
 }
 
 // https://w3c.github.io/media-source/#dom-mediasource-onsourceopen

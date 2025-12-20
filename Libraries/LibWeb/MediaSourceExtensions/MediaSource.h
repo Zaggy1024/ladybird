@@ -42,8 +42,10 @@ protected:
 
     virtual void initialize(JS::Realm&) override;
 
+    void set_ready_state(Bindings::ReadyState);
+
 private:
-    Bindings::ReadyState m_ready_state;
+    Bindings::ReadyState m_ready_state { Bindings::ReadyState::Closed };
 };
 
 }

@@ -11,6 +11,7 @@
 #include <LibMedia/PlaybackManager.h>
 #include <LibMedia/Sinks/DisplayingVideoSink.h>
 #include <LibMedia/Track.h>
+#include <LibURL/Parser.h>
 #include <LibWeb/Bindings/HTMLMediaElementPrototype.h>
 #include <LibWeb/Bindings/Intrinsics.h>
 #include <LibWeb/DOM/Document.h>
@@ -21,6 +22,7 @@
 #include <LibWeb/Fetch/Infrastructure/FetchController.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Requests.h>
 #include <LibWeb/Fetch/Infrastructure/HTTP/Responses.h>
+#include <LibWeb/FileAPI/BlobURLStore.h>
 #include <LibWeb/HTML/AudioPlayState.h>
 #include <LibWeb/HTML/AudioTrack.h>
 #include <LibWeb/HTML/AudioTrackList.h>
@@ -40,6 +42,7 @@
 #include <LibWeb/HTML/VideoTrack.h>
 #include <LibWeb/HTML/VideoTrackList.h>
 #include <LibWeb/Layout/Node.h>
+#include <LibWeb/MediaSourceExtensions/MediaSource.h>
 #include <LibWeb/MimeSniff/MimeType.h>
 #include <LibWeb/Page/Page.h>
 #include <LibWeb/Painting/Paintable.h>
@@ -115,10 +118,84 @@ void HTMLMediaElement::attribute_changed(FlyString const& name, Optional<String>
     Base::attribute_changed(name, old_value, value, namespace_);
 
     if (name == HTML::AttributeNames::src) {
+        if (!value.has_value())
+            return;
+
+        // NB: The spec doesn't explicitly state that setting the src attribute affects srcObject,
+        //     but if we don't set it to the media provider object underlying a blob URL, we will
+        //     never use MSE unless JavaScript chooses to use srcObject instead of src.
+        auto base_url = document().base_url();
+        auto encoding = document().encoding_or_default();
+        auto url = URL::Parser::basic_parse(*value, base_url, {}, {}, encoding);
+        if (url.has_value()) {
+            auto blob_entry = FileAPI::resolve_a_blob_url(*url);
+            if (blob_entry.has_value()) {
+                blob_entry->object.visit(
+                    [&](GC::Root<FileAPI::Blob> const& blob) {
+                        set_assigned_media_provider_object(GC::Ref(*blob));
+                        dbgln("set_src blob");
+                    },
+                    [&](GC::Root<MediaSourceExtensions::MediaSource> const& media_source) {
+                        set_assigned_media_provider_object(GC::Ref(*media_source));
+                        dbgln("set_src media source");
+                    });
+            }
+        }
+
+        dbgln("src {} -> {}", old_value, value);
+        // If a src attribute of a media element is set or changed, the user agent must invoke the
+        // media element's media element load algorithm. (Removing the src attribute does not do
+        // this, even if there are source elements present.)
         load_element().release_value_but_fixme_should_propagate_errors();
     } else if (name == HTML::AttributeNames::crossorigin) {
         m_crossorigin = cors_setting_attribute_from_keyword(value);
     }
+}
+
+OptionalMediaProvider HTMLMediaElement::src_object() const
+{
+    // The srcObject IDL attribute, on getting, must return the element's assigned media provider
+    // object, if any, or null otherwise.
+    return assigned_media_provider_object().visit(
+        [](Empty) -> OptionalMediaProvider {
+            return Empty();
+        },
+        [](GC::Ref<FileAPI::Blob> blob) -> OptionalMediaProvider {
+            return { GC::Root(blob) };
+        },
+        [](GC::Ref<MediaSourceExtensions::MediaSource> media_source) -> OptionalMediaProvider {
+            return { GC::Root(media_source) };
+        });
+}
+
+WebIDL::ExceptionOr<void> HTMLMediaElement::set_src_object(OptionalMediaProvider src_object)
+{
+    // On setting, it must set the element's assigned media provider object to the new value,
+    set_assigned_media_provider_object(src_object.visit(
+        [](Empty) -> MediaProviderObject {
+            return Empty();
+        },
+        [](GC::Root<FileAPI::Blob> const& blob) -> MediaProviderObject {
+            dbgln("set_src_object blob");
+            return GC::Ref(*blob);
+        },
+        [](GC::Root<MediaSourceExtensions::MediaSource> const& media_source) -> MediaProviderObject {
+            dbgln("set_src_object media source");
+            return GC::Ref(*media_source);
+        }));
+
+    // and then invoke the element's media element load algorithm.
+    return load_element();
+}
+
+HTMLMediaElement::MediaProviderObject const& HTMLMediaElement::assigned_media_provider_object() const
+{
+    return m_assigned_media_provider_object;
+}
+
+void HTMLMediaElement::set_assigned_media_provider_object(MediaProviderObject const& provider)
+{
+    m_assigned_media_provider_object = provider;
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#playing-the-media-resource:media-element-83
@@ -921,6 +998,7 @@ void HTMLMediaElement::select_resource()
             // 3. ⌛ If urlRecord is not failure, then set the currentSrc attribute to the result of applying the URL serializer to urlRecord.
             if (url_record.has_value())
                 m_current_src = url_record->serialize();
+            dbgln("current_src: {}", m_current_src);
 
             // 4. End the synchronous section, continuing the remaining steps in parallel.
 
