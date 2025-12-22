@@ -113,6 +113,14 @@ void HTMLMediaElement::visit_edges(Cell::Visitor& visitor)
     visitor.visit(m_fetch_controller);
     visitor.visit(m_pending_play_promises);
     visitor.visit(m_selected_video_track);
+    assigned_media_provider_object().visit(
+        [](Empty) {},
+        [&visitor](GC::Ref<MediaSourceExtensions::MediaSource> media_source) {
+            visitor.visit(media_source);
+        },
+        [&visitor](GC::Ref<FileAPI::Blob> blob) {
+            visitor.visit(blob);
+        });
 }
 
 void HTMLMediaElement::attribute_changed(FlyString const& name, Optional<String> const& old_value, Optional<String> const& value, Optional<FlyString> const& namespace_)
@@ -167,6 +175,11 @@ WebIDL::ExceptionOr<void> HTMLMediaElement::set_src_object(OptionalMediaProvider
 
     // and then invoke the element's media element load algorithm.
     return load_element();
+}
+
+HTMLMediaElement::MediaProviderObject& HTMLMediaElement::assigned_media_provider_object()
+{
+    return m_assigned_media_provider_object;
 }
 
 HTMLMediaElement::MediaProviderObject const& HTMLMediaElement::assigned_media_provider_object() const
@@ -1134,6 +1147,91 @@ void HTMLMediaElement::fetch_local_resource(MediaProviderObject const& media_pro
     // -> If mode is remote
     // -> Otherwise (mode is local)
 
+    // https://w3c.github.io/media-source/#mediasource-attach
+    // At the beginning of the "Otherwise (mode is local)" section of the resource fetch algorithm,
+    // execute the additional steps, below.
+
+    // 1. If the resource fetch algorithm was invoked with a media provider object that is a
+    //    MediaSource object, a MediaSourceHandle object or a URL record whose object is a
+    //    MediaSource object, then:
+    if (media_provider.has<GC::Ref<MediaSourceExtensions::MediaSource>>()) {
+        auto const& media_source = media_provider.get<GC::Ref<MediaSourceExtensions::MediaSource>>();
+
+        // FIXME: If the media provider object is a URL record whose object is a MediaSource that
+        //        was constructed in a DedicatedWorkerGlobalScope, such as would occur if attempting
+        //        to use a MediaSource object URL from a DedicatedWorkerGlobalScope MediaSource
+        //            Run the "If the media data cannot be fetched at all, due to network errors,
+        //            causing the user agent to give up trying to fetch the resource" steps of the
+        //            resource fetch algorithm's media data processing steps list.
+
+        // FIXME: If the media provider object is a MediaSourceHandle whose [[Detached]] internal
+        //        slot is true
+        //            Run the "If the media data cannot be fetched at all, due to network errors,
+        //            causing the user agent to give up trying to fetch the resource" steps of the
+        //            resource fetch algorithm's media data processing steps list.
+
+        // FIXME: If the media provider object is a MediaSourceHandle whose underlying MediaSource's
+        //        [[has ever been attached]] internal slot is true
+        //            Run the "If the media data cannot be fetched at all, due to network errors,
+        //            causing the user agent to give up trying to fetch the resource" steps of the
+        //            resource fetch algorithm's media data processing steps list.
+
+        // If readyState is NOT set to "closed"
+        if (!media_source->ready_state_is_closed()) {
+            // Run the "If the media data cannot be fetched at all, due to network errors,
+            // causing the user agent to give up trying to fetch the resource" steps of the
+            // resource fetch algorithm's media data processing steps list.
+            failure_callback("MediaSource is not closed"_string);
+        } else {
+            // Otherwise
+
+            // 1. Set the MediaSource's [[has ever been attached]] internal slot to true.
+            media_source->set_has_ever_been_attached();
+
+            // 2. Set the media element's delaying-the-load-event-flag to false.
+            m_delaying_the_load_event.clear();
+
+            // FIXME: 3. If the MediaSource was constructed in a DedicatedWorkerGlobalScope, then setup worker attachment communication and open the MediaSource:
+            //        1. Set [[channel with worker]] to be a new MessageChannel.
+            //        2. Set [[port to worker]] to the port1 value of [[channel with worker]].
+            //        3. Execute StructuredSerializeWithTransfer with the port2 of [[channel with worker]] as both the value and the sole member of the transferList, and let the result be serialized port2.
+            //        4. Queue a task on the MediaSource's DedicatedWorkerGlobalScope that will
+            //            1. Execute StructuredDeserializeWithTransfer with serialized port2 and DedicatedWorkerGlobalScope's realm, and set [[port to main]] to be the resulting deserialized clone of the transferred port2 value of [[channel with worker]].
+            //            2. Set the readyState attribute to "open".
+            //            3. Queue a task to fire an event named sourceopen at the MediaSource.
+
+            // Otherwise, the MediaSource was constructed in a Window:
+            // FIXME: 1. Set [[channel with worker]] null.
+            // FIXME: 2. Set [[port to worker]] null.
+            // FIXME: 3. Set [[port to main]] null.
+            // 4. Set the readyState attribute to "open".
+            media_source->set_ready_state_to_open();
+            // 5. Queue a task to fire an event named sourceopen at the MediaSource.
+            queue_a_media_element_task([weak_self = GC::Weak(*this), weak_media_source = GC::Weak(media_source)] {
+                if (!weak_self || !weak_media_source)
+                    return;
+                if (!weak_self->assigned_media_provider_object().has<GC::Ref<MediaSourceExtensions::MediaSource>>())
+                    return;
+                auto& media_source = weak_self->assigned_media_provider_object().get<GC::Ref<MediaSourceExtensions::MediaSource>>();
+                if (media_source != weak_media_source)
+                    return;
+                media_source->fire_sourceopen_event();
+            });
+
+            // 4. Continue the resource fetch algorithm by running the remaining
+            //    "Otherwise (mode is local)" steps, with these requirements:
+            //     1. Text in the resource fetch algorithm or the media data processing steps
+            //        list that refers to "the download", "bytes received", or "whenever new
+            //        data for the current media resource becomes available" refers to data
+            //        passed in via appendBuffer().
+            //     2. References to HTTP in the resource fetch algorithm and the media data
+            //        processing steps list shall not apply because the HTMLMediaElement does
+            //        not fetch media data via HTTP when a MediaSource is attached.
+        }
+
+        return;
+    }
+
     // The resource described by the current media resource, if any, contains the media data. It is CORS-same-origin.
     //
     // If the current media resource is a raw data stream (e.g. from a File object), then to determine the format of the media resource, the user agent
@@ -1145,9 +1243,7 @@ void HTMLMediaElement::fetch_local_resource(MediaProviderObject const& media_pro
     //
     // When the current media resource is permanently exhausted (e.g. all the bytes of a Blob have been processed), if there were no decoding errors,
     // then the user agent must move on to the final step below. This might never happen, e.g. if the current media resource is a MediaStream.
-
-    (void)media_provider;
-    failure_callback("Not supported"_string);
+    failure_callback("Unsupported media provider object"_string);
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#concept-media-load-resource

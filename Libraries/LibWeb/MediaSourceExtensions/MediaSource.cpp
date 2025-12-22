@@ -37,33 +37,31 @@ void MediaSource::initialize(JS::Realm& realm)
 
 ReadyState MediaSource::ready_state() const
 {
+    dbgln("is open? {}", m_ready_state == ReadyState::Open);
     return m_ready_state;
 }
 
-void MediaSource::set_ready_state(ReadyState state)
+bool MediaSource::ready_state_is_closed() const
 {
-    auto& realm = this->realm();
+    return m_ready_state == ReadyState::Closed;
+}
 
-    auto old_state = m_ready_state;
-    m_ready_state = state;
+void MediaSource::set_has_ever_been_attached()
+{
+    m_has_ever_been_attached = true;
+}
 
-    // sourceopen: Dispatched when MediaSource's readyState transitions from "closed" to "open" or from "ended" to "open". 
-    if ((old_state == ReadyState::Closed || old_state == ReadyState::Ended) && state == ReadyState::Open) {
-        auto event = DOM::Event::create(realm, EventNames::sourceopen);
-        dispatch_event(event);
-    }
+void MediaSource::set_ready_state_to_open()
+{
+    dbgln("set_ready_state_to_open");
+    m_ready_state = ReadyState::Open;
+}
 
-    // sourceended: Dispatched when MediaSource's readyState transitions from "open" to "ended". 
-    if (old_state == ReadyState::Open && state == ReadyState::Ended) {
-        auto event = DOM::Event::create(realm, EventNames::sourceended);
-        dispatch_event(event);
-    }
-
-    // sourceclose: Dispatched when MediaSource's readyState transitions from "open" to "closed" or "ended" to "closed". 
-    if ((old_state == ReadyState::Open || old_state == ReadyState::Ended) && state == ReadyState::Closed) {
-        auto event = DOM::Event::create(realm, EventNames::sourceclose);
-        dispatch_event(event);
-    }
+void MediaSource::fire_sourceopen_event()
+{
+    dbgln("fire sourceopen");
+    auto event = DOM::Event::create(realm(), EventNames::sourceopen);
+    dispatch_event(event);
 }
 
 // https://w3c.github.io/media-source/#dom-mediasource-onsourceopen

@@ -207,6 +207,7 @@ private:
 
     using MediaProviderObject = Variant<Empty, GC::Ref<MediaSourceExtensions::MediaSource>, GC::Ref<FileAPI::Blob>>;
     MediaProviderObject const& assigned_media_provider_object() const;
+    MediaProviderObject& assigned_media_provider_object();
     void set_assigned_media_provider_object(MediaProviderObject const&);
 
     WebIDL::ExceptionOr<void> load_element();
