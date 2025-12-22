@@ -32,6 +32,7 @@
 #include <LibWeb/HTML/HTMLSourceElement.h>
 #include <LibWeb/HTML/HTMLVideoElement.h>
 #include <LibWeb/HTML/MediaError.h>
+#include <LibWeb/HTML/Navigable.h>
 #include <LibWeb/HTML/PotentialCORSRequest.h>
 #include <LibWeb/HTML/Scripting/Environments.h>
 #include <LibWeb/HTML/Scripting/TemporaryExecutionContext.h>
@@ -41,6 +42,7 @@
 #include <LibWeb/HTML/TrackEvent.h>
 #include <LibWeb/HTML/VideoTrack.h>
 #include <LibWeb/HTML/VideoTrackList.h>
+#include <LibWeb/HTML/Window.h>
 #include <LibWeb/Layout/Node.h>
 #include <LibWeb/MediaSourceExtensions/MediaSource.h>
 #include <LibWeb/MimeSniff/MimeType.h>
@@ -120,27 +122,6 @@ void HTMLMediaElement::attribute_changed(FlyString const& name, Optional<String>
     if (name == HTML::AttributeNames::src) {
         if (!value.has_value())
             return;
-
-        // NB: The spec doesn't explicitly state that setting the src attribute affects srcObject,
-        //     but if we don't set it to the media provider object underlying a blob URL, we will
-        //     never use MSE unless JavaScript chooses to use srcObject instead of src.
-        auto base_url = document().base_url();
-        auto encoding = document().encoding_or_default();
-        auto url = URL::Parser::basic_parse(*value, base_url, {}, {}, encoding);
-        if (url.has_value()) {
-            auto blob_entry = FileAPI::resolve_a_blob_url(*url);
-            if (blob_entry.has_value()) {
-                blob_entry->object.visit(
-                    [&](GC::Root<FileAPI::Blob> const& blob) {
-                        set_assigned_media_provider_object(GC::Ref(*blob));
-                        dbgln("set_src blob");
-                    },
-                    [&](GC::Root<MediaSourceExtensions::MediaSource> const& media_source) {
-                        set_assigned_media_provider_object(GC::Ref(*media_source));
-                        dbgln("set_src media source");
-                    });
-            }
-        }
 
         dbgln("src {} -> {}", old_value, value);
         // If a src attribute of a media element is set or changed, the user agent must invoke the
@@ -769,7 +750,7 @@ public:
 
         // 9. Run the resource fetch algorithm with urlRecord. If that algorithm returns without aborting this one, then
         //    the load failed.
-        m_media_element->fetch_resource(*url_record, [self = GC::make_root(this)](auto) { self->failed_with_elements().release_value_but_fixme_should_propagate_errors(); });
+        m_media_element->fetch_url_resource(*url_record, [self = GC::make_root(this)](auto) { self->failed_with_elements().release_value_but_fixme_should_propagate_errors(); });
 
         return {};
     }
@@ -919,10 +900,12 @@ void HTMLMediaElement::select_resource()
         Optional<SelectMode> mode;
         GC::Ptr<HTMLSourceElement> candidate;
 
-        // 6. FIXME: ⌛ If the media element has an assigned media provider object, then let mode be object.
-
+        // 6. ⌛ If the media element has an assigned media provider object, then let mode be object.
+        if (!assigned_media_provider_object().has<Empty>()) {
+            mode = SelectMode::Object;
+        }
         // ⌛ Otherwise, if the media element has no assigned media provider object but has a src attribute, then let mode be attribute.
-        if (has_attribute(HTML::AttributeNames::src)) {
+        else if (has_attribute(HTML::AttributeNames::src)) {
             mode = SelectMode::Attribute;
         }
         // ⌛ Otherwise, if the media element does not have an assigned media provider object and does not have a src attribute, but does have
@@ -954,18 +937,37 @@ void HTMLMediaElement::select_resource()
         // 9. Run the appropriate steps from the following list:
         switch (*mode) {
         // -> If mode is object
-        case SelectMode::Object:
-            // FIXME: 1. ⌛ Set the currentSrc attribute to the empty string.
-            // FIXME: 2. End the synchronous section, continuing the remaining steps in parallel.
-            // FIXME: 3. Run the resource fetch algorithm with the assigned media provider object. If that algorithm returns without aborting this one,
-            //           then theload failed.
-            // FIXME: 4. Failed with media provider: Reaching this step indicates that the media resource failed to load. Take pending play promises and queue
-            //           a media element task given the media element to run the dedicated media source failure steps with the result.
-            // FIXME: 5. Wait for the task queued by the previous step to have executed.
+        case SelectMode::Object: {
+            auto failed_with_media_provider = [this](auto error_message) {
+                IGNORE_USE_IN_ESCAPING_LAMBDA bool ran_media_element_task = false;
+
+                // 4. Failed with media provider: Reaching this step indicates that the media resource failed to load. Take pending play promises and queue
+                //    a media element task given the media element to run the dedicated media source failure steps with the result.
+                queue_a_media_element_task([this, &ran_media_element_task, error_message = move(error_message)]() mutable {
+                    auto promises = take_pending_play_promises();
+                    handle_media_source_failure(promises, move(error_message)).release_value_but_fixme_should_propagate_errors();
+
+                    ran_media_element_task = true;
+                });
+
+                // 5. Wait for the task queued by the previous step to have executed.
+                HTML::main_thread_event_loop().spin_until(GC::create_function(heap(), [&]() { return ran_media_element_task; }));
+            };
+
+            // 1. ⌛ Set the currentSrc attribute to the empty string.
+            m_current_src = {};
+
+            // 2. End the synchronous section, continuing the remaining steps in parallel.
+            // 3. Run the resource fetch algorithm with the assigned media provider object. If that algorithm returns without aborting this one,
+            //    then theload failed.
+            VERIFY(!assigned_media_provider_object().has<Empty>());
+            queue_a_media_element_task([this, failed_with_media_provider = move(failed_with_media_provider)]() mutable {
+                fetch_local_resource(assigned_media_provider_object(), move(failed_with_media_provider));
+            });
 
             // 6. Return. The element won't attempt to load another resource until this algorithm is triggered again.
             return;
-
+        }
         // -> If mode is attribute
         case SelectMode::Attribute: {
             auto failed_with_attribute = [this](auto error_message) {
@@ -1006,7 +1008,7 @@ void HTMLMediaElement::select_resource()
             //    then the load failed.
             queue_a_media_element_task([this, url_record = move(url_record), failed_with_attribute = move(failed_with_attribute)]() mutable {
                 if (url_record.has_value()) {
-                    fetch_resource(*url_record, move(failed_with_attribute));
+                    fetch_url_resource(*url_record, move(failed_with_attribute));
                     return;
                 }
             });
@@ -1047,7 +1049,12 @@ void HTMLMediaElement::select_resource()
     });
 }
 
-struct HTMLMediaElement::FetchData : public RefCounted<FetchData> {
+enum class FetchMode : u8 {
+    Local,
+    Remote,
+};
+
+struct HTMLMediaElement::RemoteFetchData : public RefCounted<RemoteFetchData> {
     URL::URL url_record;
     RefPtr<Media::IncrementallyPopulatedStream> stream;
     Function<void(String)> failure_callback;
@@ -1055,9 +1062,54 @@ struct HTMLMediaElement::FetchData : public RefCounted<FetchData> {
     u64 offset { 0 };
 };
 
-void HTMLMediaElement::fetch_resource(URL::URL const& url_record, Function<void(String)> failure_callback)
+// https://html.spec.whatwg.org/multipage/media.html#concept-media-load-resource
+void HTMLMediaElement::fetch_url_resource(URL::URL const& url_record, Function<void(String)> failure_callback)
 {
-    auto fetch_data = make_ref_counted<FetchData>();
+    // 2. If the algorithm was invoked with media provider object, then set mode to local.
+    //    Otherwise:
+    // AD-HOC: Skip these steps if the URL is not a blob. Otherwise, we'll access a nonexistent
+    //         blob URL entry below.
+    if (url_record.blob_url_entry().has_value()) {
+        // 1. Let isTopLevelSelfFetch be false.
+        auto is_top_level_self_fetch = false;
+        // 2. Let settingsObject be the media element's node document's relevant settings object.
+        auto& settings_object = document().relevant_settings_object();
+        // 3. Let global be the media element's node document's relevant global object.
+        auto const& global_window = as_if<HTML::Window>(HTML::relevant_global_object(document()));
+        // 4. If all of the following conditions are true:
+        if (
+            // global is a Window object;
+            global_window != nullptr &&
+            // global's navigable is not null;
+            global_window->navigable() != nullptr &&
+            // global's navigable's parent is null; and
+            global_window->navigable()->parent() == nullptr &&
+            // settingsObject's creation URL equals the URL record,
+            settings_object.creation_url == url_record)
+            // then set isTopLevelSelfFetch to true.
+            is_top_level_self_fetch = true;
+
+        // 5. Let stringOrEnvironment be "top-level-self-fetch" if isTopLevelSelfFetch is true; otherwise settingsObject.
+        auto string_or_environment = [&] -> Variant<GC::Ref<HTML::Environment>, FileAPI::TopLevelSelfFetch> {
+            if (is_top_level_self_fetch)
+                return FileAPI::TopLevelSelfFetch();
+            return { settings_object };
+        }();
+
+        // 6. Let object be the result of obtaining a blob object using the URL record's blob URL entry and stringOrEnvironment.
+        auto object = FileAPI::obtain_a_blob_object(*url_record.blob_url_entry(), string_or_environment);
+        // 7. If object is a media provider object,
+        if (object.has_value() && object->has<URL::BlobURLEntry::MediaSource>()) {
+            // then set mode to local.
+
+            // NB: Invoke the local fetch method with the blob's contained MediaSource.
+            auto const& blob_entry = FileAPI::resolve_a_blob_url(url_record).value();
+            fetch_local_resource(GC::Ref(*blob_entry.object.get<GC::Root<MediaSourceExtensions::MediaSource>>()), move(failure_callback));
+            return;
+        }
+    }
+
+    auto fetch_data = make_ref_counted<RemoteFetchData>();
     fetch_data->url_record = url_record;
     fetch_data->stream = Media::IncrementallyPopulatedStream::create_empty();
     fetch_data->stream->set_data_request_callback([self = GC::Weak(*this), fetch_data](u64 offset) {
@@ -1073,16 +1125,33 @@ void HTMLMediaElement::fetch_resource(URL::URL const& url_record, Function<void(
 
     set_up_playback_manager(fetch_data);
 
-    fetch_resource(fetch_data, EntireResource {});
+    fetch_remote_resource(fetch_data, EntireResource {});
 }
 
-enum class FetchMode : u8 {
-    Local,
-    Remote,
-};
+// https://html.spec.whatwg.org/multipage/media.html#concept-media-load-resource
+void HTMLMediaElement::fetch_local_resource(MediaProviderObject const& media_provider, Function<void(String)> failure_callback)
+{
+    // -> If mode is remote
+    // -> Otherwise (mode is local)
+
+    // The resource described by the current media resource, if any, contains the media data. It is CORS-same-origin.
+    //
+    // If the current media resource is a raw data stream (e.g. from a File object), then to determine the format of the media resource, the user agent
+    // must use the rules for sniffing audio and video specifically. Otherwise, if the data stream is pre-decoded, then the format is the format given
+    // by the relevant specification.
+    //
+    // Whenever new data for the current media resource becomes available, queue a media element task given the media element to run the first appropriate
+    // steps from the media data processing steps list below.
+    //
+    // When the current media resource is permanently exhausted (e.g. all the bytes of a Blob have been processed), if there were no decoding errors,
+    // then the user agent must move on to the final step below. This might never happen, e.g. if the current media resource is a MediaStream.
+
+    (void)media_provider;
+    failure_callback("Not supported"_string);
+}
 
 // https://html.spec.whatwg.org/multipage/media.html#concept-media-load-resource
-void HTMLMediaElement::fetch_resource(NonnullRefPtr<FetchData> const& fetch_data, ByteRange const& byte_range)
+void HTMLMediaElement::fetch_remote_resource(NonnullRefPtr<RemoteFetchData> const& fetch_data, ByteRange const& byte_range)
 {
     auto& realm = this->realm();
     auto& vm = realm.vm();
@@ -1092,163 +1161,139 @@ void HTMLMediaElement::fetch_resource(NonnullRefPtr<FetchData> const& fetch_data
     auto fetch_generation = ++m_current_fetch_generation;
 
     // 1. Let mode be remote.
-    auto mode = FetchMode::Remote;
+    // 2. If the algorithm was invoked with media provider object, then set mode to local.
+    // NB: We invoke this method only if we've already determined that it was not invoked with a media provider object.
 
-    // FIXME: 2. If the algorithm was invoked with media provider object, then set mode to local.
-    //           Otherwise:
-    //           1. Let object be the result of obtaining a blob object using the URL record's blob URL entry and the media
-    //              element's node document's relevant settings object.
-    //           2. If object is a media provider object, then set mode to local.
     // FIXME: 3. If mode is remote, then let the current media resource be the resource given by the URL record passed to this algorithm; otherwise, let the
     //           current media resource be the resource given by the media provider object. Either way, the current media resource is now the element's media
     //           resource.
     // FIXME: 4. Remove all media-resource-specific text tracks from the media element's list of pending text tracks, if any.
 
     // 5. Run the appropriate steps from the following list:
-    switch (mode) {
     // -> If mode is remote
-    case FetchMode::Remote: {
-        // FIXME: 1. Optionally, run the following substeps. This is the expected behavior if the user agent intends to not attempt to fetch the resource until
-        //           the user requests it explicitly (e.g. as a way to implement the preload attribute's none keyword).
-        //            1. Set the networkState to NETWORK_IDLE.
-        //            2. Queue a media element task given the media element to fire an event named suspend at the element.
-        //            3. Queue a media element task given the media element to set the element's delaying-the-load-event flag to false. This stops delaying
-        //               the load event.
-        //            4. Wait for the task to be run.
-        //            5. Wait for an implementation-defined event (e.g., the user requesting that the media element begin playback).
-        //            6. Set the element's delaying-the-load-event flag back to true (this delays the load event again, in case it hasn't been fired yet).
-        //            7. Set the networkState to NETWORK_LOADING.
 
-        // 2. Let destination be "audio" if the media element is an audio element, or "video" otherwise.
-        auto destination = is<HTMLAudioElement>(*this)
-            ? Fetch::Infrastructure::Request::Destination::Audio
-            : Fetch::Infrastructure::Request::Destination::Video;
+    // FIXME: 1. Optionally, run the following substeps. This is the expected behavior if the user agent intends to not attempt to fetch the resource until
+    //           the user requests it explicitly (e.g. as a way to implement the preload attribute's none keyword).
+    //            1. Set the networkState to NETWORK_IDLE.
+    //            2. Queue a media element task given the media element to fire an event named suspend at the element.
+    //            3. Queue a media element task given the media element to set the element's delaying-the-load-event flag to false. This stops delaying
+    //               the load event.
+    //            4. Wait for the task to be run.
+    //            5. Wait for an implementation-defined event (e.g., the user requesting that the media element begin playback).
+    //            6. Set the element's delaying-the-load-event flag back to true (this delays the load event again, in case it hasn't been fired yet).
+    //            7. Set the networkState to NETWORK_LOADING.
 
-        // 3. Let request be the result of creating a potential-CORS request given current media resource's URL record, destination, and the current state
-        //    of the media element's crossorigin content attribute.
-        auto request = create_potential_CORS_request(vm, url_record, destination, m_crossorigin);
+    // 2. Let destination be "audio" if the media element is an audio element, or "video" otherwise.
+    auto destination = is<HTMLAudioElement>(*this)
+        ? Fetch::Infrastructure::Request::Destination::Audio
+        : Fetch::Infrastructure::Request::Destination::Video;
 
-        // 4. Set request's client to the media element's node document's relevant settings object.
-        request->set_client(&document().relevant_settings_object());
+    // 3. Let request be the result of creating a potential-CORS request given current media resource's URL record, destination, and the current state
+    //    of the media element's crossorigin content attribute.
+    auto request = create_potential_CORS_request(vm, url_record, destination, m_crossorigin);
 
-        // 5. Set request's initiator type to destination.
-        request->set_initiator_type(destination == Fetch::Infrastructure::Request::Destination::Audio
-                ? Fetch::Infrastructure::Request::InitiatorType::Audio
-                : Fetch::Infrastructure::Request::InitiatorType::Video);
+    // 4. Set request's client to the media element's node document's relevant settings object.
+    request->set_client(&document().relevant_settings_object());
 
-        // 6. Let byteRange, which is "entire resource" or a (number, number or "until end") tuple, be the byte range required to satisfy missing data in
-        //    media data. This value is implementation-defined and may rely on codec, network conditions or other heuristics. The user-agent may determine
-        //    to fetch the resource in full, in which case byteRange would be "entire resource", to fetch from a byte offset until the end, in which case
-        //    byteRange would be (number, "until end"), or to fetch a range between two byte offsets, in which case byteRange would be a (number, number)
-        //    tuple representing the two offsets.
-        // NB: byte_range is passed as a parameter.
+    // 5. Set request's initiator type to destination.
+    request->set_initiator_type(destination == Fetch::Infrastructure::Request::Destination::Audio
+            ? Fetch::Infrastructure::Request::InitiatorType::Audio
+            : Fetch::Infrastructure::Request::InitiatorType::Video);
 
-        // 7. If byteRange is not "entire resource", then:
-        fetch_data->offset = 0;
+    // 6. Let byteRange, which is "entire resource" or a (number, number or "until end") tuple, be the byte range required to satisfy missing data in
+    //    media data. This value is implementation-defined and may rely on codec, network conditions or other heuristics. The user-agent may determine
+    //    to fetch the resource in full, in which case byteRange would be "entire resource", to fetch from a byte offset until the end, in which case
+    //    byteRange would be (number, "until end"), or to fetch a range between two byte offsets, in which case byteRange would be a (number, number)
+    //    tuple representing the two offsets.
+    // NB: byte_range is passed as a parameter.
 
-        if (!byte_range.has<EntireResource>()) {
-            // 1. If byteRange[1] is "until end", then add a range header to request given byteRange[0].
-            if (byte_range.has<UntilEnd>()) {
-                auto const& range = byte_range.get<UntilEnd>();
-                request->add_range_header(range.first, {});
-                fetch_data->offset = range.first;
-            } else {
-                // 2. Otherwise, add a range header to request given byteRange[0] and byteRange[1].
-                // NB: We don't currently have any need to request a range with a delimited end.
-                VERIFY_NOT_REACHED();
-            }
+    // 7. If byteRange is not "entire resource", then:
+    fetch_data->offset = 0;
+
+    if (!byte_range.has<EntireResource>()) {
+        // 1. If byteRange[1] is "until end", then add a range header to request given byteRange[0].
+        if (byte_range.has<UntilEnd>()) {
+            auto const& range = byte_range.get<UntilEnd>();
+            request->add_range_header(range.first, {});
+            fetch_data->offset = range.first;
+        } else {
+            // 2. Otherwise, add a range header to request given byteRange[0] and byteRange[1].
+            // NB: We don't currently have any need to request a range with a delimited end.
+            VERIFY_NOT_REACHED();
+        }
+    }
+
+    // 8. Fetch request, with processResponse set to the following steps given response response:
+    Fetch::Infrastructure::FetchAlgorithms::Input fetch_algorithms_input {};
+
+    fetch_algorithms_input.process_response = [this, byte_range = move(byte_range), fetch_data, fetch_generation](auto response) mutable {
+        // FIXME: If the response is CORS cross-origin, we must use its internal response to query any of its data. See:
+        //        https://github.com/whatwg/html/issues/9355
+        response = response->unsafe_response();
+
+        // 1. Let global be the media element's node document's relevant global object.
+        auto& global = document().realm().global_object();
+
+        if (auto content_length = response->header_list()->extract_length(); content_length.template has<u64>()) {
+            auto actual_length = fetch_data->offset + content_length.template get<u64>();
+            fetch_data->stream->set_expected_size(actual_length);
         }
 
-        // 8. Fetch request, with processResponse set to the following steps given response response:
-        Fetch::Infrastructure::FetchAlgorithms::Input fetch_algorithms_input {};
+        if (auto accept_ranges = response->header_list()->extract_header_list_values("Accept-Ranges"sv); accept_ranges.template has<Vector<ByteString>>())
+            fetch_data->accepts_byte_ranges = accept_ranges.template get<Vector<ByteString>>().contains([](auto const& units) { return units == "bytes"sv; });
 
-        fetch_algorithms_input.process_response = [this, byte_range = move(byte_range), fetch_data, fetch_generation](auto response) mutable {
-            // FIXME: If the response is CORS cross-origin, we must use its internal response to query any of its data. See:
-            //        https://github.com/whatwg/html/issues/9355
-            response = response->unsafe_response();
+        // 4. If the result of verifying response given the current media resource and byteRange is false, then abort these steps.
+        // NOTE: We do this step before creating the updateMedia task so that we can invoke the failure callback.
+        auto maybe_verify_response_failure = verify_response_or_get_failure_reason(response, byte_range, fetch_data);
+        if (maybe_verify_response_failure.has_value()) {
+            fetch_data->failure_callback(maybe_verify_response_failure.value());
+            return;
+        }
 
-            // 1. Let global be the media element's node document's relevant global object.
-            auto& global = document().realm().global_object();
-
-            if (auto content_length = response->header_list()->extract_length(); content_length.template has<u64>()) {
-                auto actual_length = fetch_data->offset + content_length.template get<u64>();
-                fetch_data->stream->set_expected_size(actual_length);
-            }
-
-            if (auto accept_ranges = response->header_list()->extract_header_list_values("Accept-Ranges"sv); accept_ranges.template has<Vector<ByteString>>())
-                fetch_data->accepts_byte_ranges = accept_ranges.template get<Vector<ByteString>>().contains([](auto const& units) { return units == "bytes"sv; });
-
-            // 4. If the result of verifying response given the current media resource and byteRange is false, then abort these steps.
-            // NOTE: We do this step before creating the updateMedia task so that we can invoke the failure callback.
-            auto maybe_verify_response_failure = verify_response_or_get_failure_reason(response, byte_range, fetch_data);
-            if (maybe_verify_response_failure.has_value()) {
-                fetch_data->failure_callback(maybe_verify_response_failure.value());
+        // 2. Let updateMedia be to queue a media element task given the media element to run the first appropriate steps from the media data processing
+        //    steps list below. (A new task is used for this so that the work described below occurs relative to the appropriate media element event task
+        //    source rather than using the networking task source.)
+        auto update_media = GC::create_function(heap(), [this, fetch_data, fetch_generation](ByteBuffer media_data) mutable {
+            if (fetch_generation != m_current_fetch_generation)
                 return;
-            }
 
-            // 2. Let updateMedia be to queue a media element task given the media element to run the first appropriate steps from the media data processing
-            //    steps list below. (A new task is used for this so that the work described below occurs relative to the appropriate media element event task
-            //    source rather than using the networking task source.)
-            auto update_media = GC::create_function(heap(), [this, fetch_data, fetch_generation](ByteBuffer media_data) mutable {
-                if (fetch_generation != m_current_fetch_generation)
-                    return;
+            // 6. Update the media data with the contents of response's unsafe response obtained in this fashion. response can be CORS-same-origin or
+            //    CORS-cross-origin; this affects whether subtitles referenced in the media data are exposed in the API and, for video elements, whether
+            //    a canvas gets tainted when the video is drawn on it.
+            fetch_data->stream->add_chunk_at(fetch_data->offset, media_data.bytes());
+            fetch_data->offset += media_data.size();
 
-                // 6. Update the media data with the contents of response's unsafe response obtained in this fashion. response can be CORS-same-origin or
-                //    CORS-cross-origin; this affects whether subtitles referenced in the media data are exposed in the API and, for video elements, whether
-                //    a canvas gets tainted when the video is drawn on it.
-                fetch_data->stream->add_chunk_at(fetch_data->offset, media_data.bytes());
-                fetch_data->offset += media_data.size();
-
-                queue_a_media_element_task([this] {
-                    process_media_data(FetchingStatus::Ongoing).release_value_but_fixme_should_propagate_errors();
-                });
+            queue_a_media_element_task([this] {
+                process_media_data(FetchingStatus::Ongoing).release_value_but_fixme_should_propagate_errors();
             });
+        });
 
-            // 3. Let processEndOfMedia be the following step: If the fetching process has completes without errors, including decoding the media data,
-            //    and if all of the data is available to the user agent without network access, then, the user agent must move on to the final step below.
-            //    This might never happen, e.g. when streaming an infinite resource such as web radio, or if the resource is longer than the user agent's
-            //    ability to cache data.
-            auto process_end_of_media = GC::create_function(heap(), [this, fetch_data, fetch_generation] {
-                if (fetch_generation != m_current_fetch_generation)
-                    return;
+        // 3. Let processEndOfMedia be the following step: If the fetching process has completes without errors, including decoding the media data,
+        //    and if all of the data is available to the user agent without network access, then, the user agent must move on to the final step below.
+        //    This might never happen, e.g. when streaming an infinite resource such as web radio, or if the resource is longer than the user agent's
+        //    ability to cache data.
+        auto process_end_of_media = GC::create_function(heap(), [this, fetch_data, fetch_generation] {
+            if (fetch_generation != m_current_fetch_generation)
+                return;
 
-                fetch_data->stream->reached_end_of_body();
-                queue_a_media_element_task([this] {
-                    process_media_data(FetchingStatus::Complete).release_value_but_fixme_should_propagate_errors();
-                });
+            fetch_data->stream->reached_end_of_body();
+            queue_a_media_element_task([this] {
+                process_media_data(FetchingStatus::Complete).release_value_but_fixme_should_propagate_errors();
             });
+        });
 
-            VERIFY(response->body());
-            auto empty_algorithm = GC::create_function(heap(), [](JS::Value) { });
+        VERIFY(response->body());
+        auto empty_algorithm = GC::create_function(heap(), [](JS::Value) { });
 
-            // 5. Otherwise, incrementally read response's body given updateMedia, processEndOfMedia, an empty algorithm, and global.
-            response->body()->incrementally_read(update_media, process_end_of_media, empty_algorithm, GC::Ref { global });
-        };
+        // 5. Otherwise, incrementally read response's body given updateMedia, processEndOfMedia, an empty algorithm, and global.
+        response->body()->incrementally_read(update_media, process_end_of_media, empty_algorithm, GC::Ref { global });
+    };
 
-        m_fetch_controller = Fetch::Fetching::fetch(realm, request, Fetch::Infrastructure::FetchAlgorithms::create(vm, move(fetch_algorithms_input)));
-        break;
-    }
-
-    // -> Otherwise (mode is local)
-    case FetchMode::Local:
-        // FIXME:
-        // The resource described by the current media resource, if any, contains the media data. It is CORS-same-origin.
-        //
-        // If the current media resource is a raw data stream (e.g. from a File object), then to determine the format of the media resource, the user agent
-        // must use the rules for sniffing audio and video specifically. Otherwise, if the data stream is pre-decoded, then the format is the format given
-        // by the relevant specification.
-        //
-        // Whenever new data for the current media resource becomes available, queue a media element task given the media element to run the first appropriate
-        // steps from the media data processing steps list below.
-        //
-        // When the current media resource is permanently exhausted (e.g. all the bytes of a Blob have been processed), if there were no decoding errors,
-        // then the user agent must move on to the final step below. This might never happen, e.g. if the current media resource is a MediaStream.
-        break;
-    }
+    m_fetch_controller = Fetch::Fetching::fetch(realm, request, Fetch::Infrastructure::FetchAlgorithms::create(vm, move(fetch_algorithms_input)));
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#verify-a-media-response
-Optional<String> HTMLMediaElement::verify_response_or_get_failure_reason(GC::Ref<Fetch::Infrastructure::Response> response, ByteRange const& byte_range, NonnullRefPtr<FetchData> const& fetch_data)
+Optional<String> HTMLMediaElement::verify_response_or_get_failure_reason(GC::Ref<Fetch::Infrastructure::Response> response, ByteRange const& byte_range, NonnullRefPtr<RemoteFetchData> const& fetch_data)
 {
     // 1. If response is a network error, then return false.
     if (response->is_network_error()) {
@@ -1284,14 +1329,14 @@ Optional<String> HTMLMediaElement::verify_response_or_get_failure_reason(GC::Ref
     return {};
 }
 
-void HTMLMediaElement::restart_fetch_at_offset(NonnullRefPtr<FetchData> const& fetch_data, u64 offset)
+void HTMLMediaElement::restart_fetch_at_offset(NonnullRefPtr<RemoteFetchData> const& fetch_data, u64 offset)
 {
     if (!fetch_data->accepts_byte_ranges)
         return;
     if (m_fetch_controller && m_fetch_controller->state() == Fetch::Infrastructure::FetchController::State::Ongoing)
         m_fetch_controller->stop_fetch();
 
-    fetch_resource(fetch_data, UntilEnd { offset });
+    fetch_remote_resource(fetch_data, UntilEnd { offset });
 }
 
 void HTMLMediaElement::set_audio_track_enabled(Badge<AudioTrack>, GC::Ptr<HTML::AudioTrack> audio_track, bool enabled)
@@ -1531,7 +1576,7 @@ void HTMLMediaElement::on_metadata_parsed()
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#media-data-processing-steps-list
-void HTMLMediaElement::set_up_playback_manager(NonnullRefPtr<FetchData> const& fetch_data)
+void HTMLMediaElement::set_up_playback_manager(NonnullRefPtr<RemoteFetchData> const& fetch_data)
 {
     m_playback_manager = Media::PlaybackManager::create();
 

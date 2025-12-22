@@ -211,15 +211,16 @@ private:
 
     WebIDL::ExceptionOr<void> load_element();
 
-    void fetch_resource(URL::URL const&, ESCAPING Function<void(String)> failure_callback);
-    struct FetchData;
-    void fetch_resource(NonnullRefPtr<FetchData> const&, ByteRange const&);
+    void fetch_url_resource(URL::URL const&, ESCAPING Function<void(String)> failure_callback);
+    void fetch_local_resource(MediaProviderObject const&, ESCAPING Function<void(String)> failure_callback);
+    struct RemoteFetchData;
+    void fetch_remote_resource(NonnullRefPtr<RemoteFetchData> const&, ByteRange const&);
 
-    Optional<String> verify_response_or_get_failure_reason(GC::Ref<Fetch::Infrastructure::Response>, ByteRange const&, NonnullRefPtr<FetchData> const&);
+    Optional<String> verify_response_or_get_failure_reason(GC::Ref<Fetch::Infrastructure::Response>, ByteRange const&, NonnullRefPtr<RemoteFetchData> const&);
 
-    void restart_fetch_at_offset(NonnullRefPtr<FetchData> const&, u64 offset);
+    void restart_fetch_at_offset(NonnullRefPtr<RemoteFetchData> const&, u64 offset);
 
-    void set_up_playback_manager(NonnullRefPtr<FetchData> const&);
+    void set_up_playback_manager(NonnullRefPtr<RemoteFetchData> const&);
     enum class FetchingStatus {
         Ongoing,
         Complete,
