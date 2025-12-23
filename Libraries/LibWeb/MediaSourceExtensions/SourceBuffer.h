@@ -32,13 +32,14 @@ public:
     GC::Ptr<WebIDL::CallbackType> onabort();
 
 protected:
-    SourceBuffer(JS::Realm&);
+    SourceBuffer(JS::Realm&, MediaSource&);
 
     virtual ~SourceBuffer() override;
 
     virtual void initialize(JS::Realm&) override;
 
 private:
+    GC::Ref<MediaSource> m_media_source;
 };
 
 }

@@ -6,6 +6,7 @@
 
 #include <LibWeb/Bindings/Intrinsics.h>
 #include <LibWeb/Bindings/SourceBufferListPrototype.h>
+#include <LibWeb/DOM/Event.h>
 #include <LibWeb/MediaSourceExtensions/EventNames.h>
 #include <LibWeb/MediaSourceExtensions/SourceBufferList.h>
 
@@ -24,6 +25,31 @@ void SourceBufferList::initialize(JS::Realm& realm)
 {
     WEB_SET_PROTOTYPE_FOR_INTERFACE(SourceBufferList);
     Base::initialize(realm);
+}
+
+void SourceBufferList::append(GC::Ref<SourceBuffer> buffer)
+{
+    // From https://w3c.github.io/media-source/#addsourcebuffer-method
+    // 8. Append buffer to this's sourceBuffers.
+    m_buffers.append(buffer);
+
+    // 9. Queue a task to fire an event named addsourcebuffer at this's sourceBuffers.
+    // FIXME: Should this have a task source? An event loop? A document?
+    HTML::queue_a_task(HTML::Task::Source::Unspecified, nullptr, nullptr, GC::create_function(heap(), [weak_self = GC::Weak(*this)] {
+        if (!weak_self)
+            return;
+        weak_self->dispatch_event(DOM::Event::create(weak_self->realm(), EventNames::addsourcebuffer));
+    }));
+}
+
+size_t SourceBufferList::length() const
+{
+    return m_buffers.size();
+}
+
+GC::Ref<SourceBuffer> const& SourceBufferList::item(u32 index) const
+{
+    return m_buffers[index];
 }
 
 // https://w3c.github.io/media-source/#dom-sourcebufferlist-onaddsourcebuffer

@@ -19,6 +19,9 @@ class MediaSource : public DOM::EventTarget {
 public:
     [[nodiscard]] static WebIDL::ExceptionOr<GC::Ref<MediaSource>> construct_impl(JS::Realm&);
 
+    GC::Ref<SourceBufferList> source_buffers();
+    GC::Ref<SourceBufferList> active_source_buffers();
+
     Bindings::ReadyState ready_state() const;
     bool ready_state_is_closed() const;
     void set_has_ever_been_attached();
@@ -38,6 +41,8 @@ public:
     void set_onsourceclose(GC::Ptr<WebIDL::CallbackType>);
     GC::Ptr<WebIDL::CallbackType> onsourceclose();
 
+    WebIDL::ExceptionOr<GC::Ref<SourceBuffer>> add_source_buffer(String const& type);
+
     static bool is_type_supported(String const&);
     static bool is_type_supported(JS::VM&, String const& type) { return is_type_supported(type); }
 
@@ -47,10 +52,15 @@ protected:
     virtual ~MediaSource() override;
 
     virtual void initialize(JS::Realm&) override;
+    virtual void visit_edges(Cell::Visitor&) override;
+
+    virtual GC::Ref<SourceBuffer> make_source_buffer();
 
 private:
     Bindings::ReadyState m_ready_state { Bindings::ReadyState::Closed };
     bool m_has_ever_been_attached { false };
+    GC::Ref<SourceBufferList> m_source_buffers;
+    GC::Ref<SourceBufferList> m_active_source_buffers;
 };
 
 }
