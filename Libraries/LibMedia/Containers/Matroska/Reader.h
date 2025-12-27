@@ -78,7 +78,7 @@ private:
 
     // The vectors must be sorted by timestamp at all times.
     HashMap<u64, Vector<CuePoint>> m_cues;
-    bool m_cues_have_been_parsed { false };
+    bool m_tried_to_parse_cues { false };
 };
 
 class MEDIA_API SampleIterator {

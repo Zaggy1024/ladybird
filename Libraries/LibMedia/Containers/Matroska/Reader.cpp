@@ -1052,8 +1052,9 @@ DecoderErrorOr<void> Reader::parse_cues(Streamer& streamer)
 
 DecoderErrorOr<void> Reader::ensure_cues_are_parsed()
 {
-    if (m_cues_have_been_parsed)
+    if (m_tried_to_parse_cues)
         return {};
+    m_tried_to_parse_cues = true;
     auto position = TRY(find_first_top_level_element_with_id("Cues"sv, CUES_ID));
     if (!position.has_value())
         return DecoderError::corrupted("No Tracks element found"sv);
@@ -1064,7 +1065,6 @@ DecoderErrorOr<void> Reader::ensure_cues_are_parsed()
         return {};
     }
     TRY(parse_cues(streamer));
-    m_cues_have_been_parsed = true;
     return {};
 }
 
