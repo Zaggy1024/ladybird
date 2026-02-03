@@ -75,6 +75,13 @@ void MediaSource::fire_sourceopen_event()
     dispatch_event(event);
 }
 
+void MediaSource::queue_a_media_source_task(GC::Ref<GC::Function<void()>> task)
+{
+    // FIXME: The MSE spec does not say what task source to use for its tasks. Should this use the media element's
+    //        task source? We may not have access to it if we're in a worker.
+    HTML::queue_a_task(HTML::Task::Source::Unspecified, HTML::main_thread_event_loop(), nullptr, task);
+}
+
 GC::Ref<SourceBufferList> MediaSource::source_buffers()
 {
     return m_source_buffers;
@@ -83,6 +90,16 @@ GC::Ref<SourceBufferList> MediaSource::source_buffers()
 GC::Ref<SourceBufferList> MediaSource::active_source_buffers()
 {
     return m_active_source_buffers;
+}
+
+void MediaSource::set_assigned_to_media_element(Badge<HTML::HTMLMediaElement>, HTML::HTMLMediaElement& media_element)
+{
+    m_media_element_assigned_to = media_element;
+}
+
+void MediaSource::unassign_from_media_element(Badge<HTML::HTMLMediaElement>)
+{
+    m_media_element_assigned_to = nullptr;
 }
 
 // https://w3c.github.io/media-source/#dom-mediasource-onsourceopen
