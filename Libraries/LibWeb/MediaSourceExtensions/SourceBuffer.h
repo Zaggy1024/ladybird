@@ -16,6 +16,7 @@
 
 namespace Web::MediaSourceExtensions {
 
+class ByteStreamParser;
 class TrackBuffer;
 
 // https://w3c.github.io/media-source/#sourcebuffer-append-state
@@ -87,8 +88,9 @@ private:
     // Run asynchronously when appendBuffer() is called.
     void run_buffer_append_algorithm();
 
+    void remove_bytes_from_input_buffer(size_t);
+
     // https://w3c.github.io/media-source/#sourcebuffer-segment-parser-loop
-    // Returns true if parsing should continue, false if aborted.
     bool run_segment_parser_loop();
 
     // https://w3c.github.io/media-source/#sourcebuffer-reset-parser-state
@@ -159,6 +161,7 @@ private:
     // https://w3c.github.io/media-source/#dfn-pending-initialization-segment-for-changetype-flag
     bool m_pending_initialization_segment_for_change_type_flag { false };
 
+    OwnPtr<ByteStreamParser> m_parser;
     HashMap<u64, OwnPtr<TrackBuffer>> m_track_buffers;
 };
 

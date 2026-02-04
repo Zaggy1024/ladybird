@@ -5,12 +5,14 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include "LibMedia/DecoderError.H"
 #include <LibJS/Runtime/ArrayBuffer.h>
 #include <LibWeb/Bindings/Intrinsics.h>
 #include <LibWeb/Bindings/MediaSourcePrototype.h>
 #include <LibWeb/Bindings/SourceBufferPrototype.h>
 #include <LibWeb/DOM/Event.h>
 #include <LibWeb/HTML/HTMLMediaElement.h>
+#include <LibWeb/MediaSourceExtensions/ByteStreamParser.h>
 #include <LibWeb/MediaSourceExtensions/EventNames.h>
 #include <LibWeb/MediaSourceExtensions/MediaSource.h>
 #include <LibWeb/MediaSourceExtensions/SourceBuffer.h>
@@ -477,24 +479,89 @@ void SourceBuffer::run_buffer_append_algorithm()
     }));
 }
 
+void SourceBuffer::remove_bytes_from_input_buffer(size_t bytes)
+{
+    auto remaining_bytes = m_input_buffer.bytes().slice(bytes);
+    AK::TypedTransfer<u8>::move(m_input_buffer.data(), remaining_bytes.data(), remaining_bytes.size());
+    m_input_buffer.resize(remaining_bytes.size());
+}
+
 // https://w3c.github.io/media-source/#sourcebuffer-segment-parser-loop
 bool SourceBuffer::run_segment_parser_loop()
 {
-    // FIXME: Implement the full segment parser loop algorithm.
-    // This involves:
-    // 1. Loop Top: If the [[input buffer]] is empty, then jump to the need more data step below.
-    // 2. If the [[input buffer]] contains bytes that violate the SourceBuffer byte stream format specification,
-    //    then run the append error algorithm and abort this algorithm.
-    // 3. Remove any bytes that the byte stream format specifications say MUST be ignored from the start of
-    //    the [[input buffer]].
-    // 4. If the [[append state]] equals WAITING_FOR_SEGMENT, then run the following steps...
-    // 5. If the [[append state]] equals PARSING_INIT_SEGMENT, then run the following steps...
-    // 6. If the [[append state]] equals PARSING_MEDIA_SEGMENT, then run the following steps...
-    // 7. Need more data: Return control to the calling algorithm.
+    VERIFY(m_parser);
+    size_t current_input_buffer_position = 0;
+    auto input_buffer = [&]() {
+        return m_input_buffer.bytes().slice(current_input_buffer_position);
+    };
 
-    // For now, just clear the input buffer and return success
-    m_input_buffer.clear();
-    return true;
+    while (true) {
+        // 1. Loop Top: If the [[input buffer]] is empty, then jump to the need more data step below.
+        if (m_input_buffer.is_empty())
+            goto need_more_data;
+
+        // 2. If the [[input buffer]] contains bytes that violate the SourceBuffer byte stream format specification,
+        //    then run the append error algorithm and abort this algorithm.
+        // NB: We'll react to this below when actually parsing the segments.
+
+        // 3. Remove any bytes that the byte stream format specifications say MUST be ignored from the start of
+        //    the [[input buffer]].
+        current_input_buffer_position += m_parser->check_for_bytes_to_skip(input_buffer());
+
+        // 4. If the [[append state]] equals WAITING_FOR_SEGMENT, then run the following steps:
+        if (m_append_state == AppendState::WaitingForSegment) {
+            auto input_buffer_type = m_parser->sniff_segment_type(input_buffer());
+            // 1. If the beginning of the [[input buffer]] indicates the start of an initialization segment, set the [[append state]] to PARSING_INIT_SEGMENT.
+            if (input_buffer_type == SegmentType::InitializationSegment) {
+                m_append_state = AppendState::ParsingInitSegment;
+                // 2. If the beginning of the [[input buffer]] indicates the start of a media segment, set [[append state]] to PARSING_MEDIA_SEGMENT.
+            } else if (input_buffer_type == SegmentType::MediaSegment) {
+                m_append_state = AppendState::ParsingMediaSegment;
+            } else if (input_buffer_type == SegmentType::Incomplete) {
+                // NB: If we cannot determine the type due to an incomplete segment, this is equivalent to if we were
+                //     parsing an initialization segment and didn't have enough data, which would result in jumping to
+                //     the need more data step.
+                goto need_more_data;
+            } else {
+                VERIFY(input_buffer_type == SegmentType::Unknown);
+                run_append_error_algorithm();
+                break;
+            }
+
+            // 3. Jump to the loop top step above.
+            continue;
+        }
+
+        // 5. If the [[append state]] equals PARSING_INIT_SEGMENT, then run the following steps:
+        if (m_append_state == AppendState::ParsingInitSegment) {
+            // 1. If the [[input buffer]] does not contain a complete initialization segment yet, then jump to the need more data step below.
+            auto parse_init_segment_result = m_parser->parse_initialization_segment(input_buffer());
+            if (parse_init_segment_result.is_error()) {
+                if (parse_init_segment_result.error().category() == Media::DecoderErrorCategory::EndOfStream)
+                    goto need_more_data;
+                run_append_error_algorithm();
+                break;
+            }
+            // 2. Run the initialization segment received algorithm.
+            
+
+            // 3. Remove the initialization segment bytes from the beginning of the [[input buffer]].
+            // 4. Set [[append state]] to WAITING_FOR_SEGMENT.
+            // 5. Jump to the loop top step above.
+        }
+
+        // 6. If the [[append state]] equals PARSING_MEDIA_SEGMENT, then run the following steps:
+
+        VERIFY_NOT_REACHED();
+
+        // 7. Need more data: Return control to the calling algorithm.
+    need_more_data:
+        remove_bytes_from_input_buffer(current_input_buffer_position);
+        return true;
+    }
+
+    remove_bytes_from_input_buffer(current_input_buffer_position);
+    return false;
 }
 
 // https://w3c.github.io/media-source/#sourcebuffer-reset-parser-state
