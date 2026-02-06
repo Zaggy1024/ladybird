@@ -78,10 +78,14 @@ private:
 
         size_t audio_seeks_in_flight { 0 };
         size_t audio_seeks_completed { 0 };
+
+        // Tracks which video tracks had their seek skipped (and thus shouldn't have resume_updates called).
+        Vector<Track> video_tracks_with_skipped_seek;
     };
 
     static void possibly_complete_seek(SeekData& seek_data)
     {
+        dbgln("{}: possibly_complete_seek() video {} == {}, audio {} == {}", &seek_data, seek_data.video_seeks_completed, seek_data.video_seeks_in_flight, seek_data.audio_seeks_completed, seek_data.audio_seeks_in_flight);
         if (seek_data.video_seeks_completed != seek_data.video_seeks_in_flight)
             return;
         if (seek_data.audio_seeks_completed != seek_data.audio_seeks_in_flight)
@@ -99,6 +103,10 @@ private:
 
         for (auto& video_track_data : seek_data.manager->m_video_track_datas) {
             if (video_track_data.display == nullptr)
+                continue;
+            // Don't resume updates for displays that had their seek skipped - they were never paused
+            // and their buffered frames should be preserved.
+            if (seek_data.video_tracks_with_skipped_seek.contains_slow(video_track_data.track))
                 continue;
             video_track_data.display->resume_updates();
         }
@@ -139,13 +147,25 @@ private:
     void begin_seek()
     {
         auto seek_data = make_ref_counted<SeekData>(manager());
+        dbgln("{}: begin_seek()", seek_data.ptr());
         seek_data->id = ++m_current_seek_id;
 
+        // Count video seeks and pause updates, but skip for tracks where the target is already buffered.
         for (auto const& video_track_data : manager().m_video_track_datas) {
             if (video_track_data.display == nullptr)
                 continue;
             seek_data->video_seeks_in_flight++;
-            video_track_data.display->pause_updates();
+
+            // For accurate seeks, if the target timestamp is already within the buffered frame range
+            // and there's no seek in progress that would clear the queue, we can skip pausing updates
+            // since we'll preserve the existing frames.
+            bool can_skip = m_mode == SeekMode::Accurate
+                && video_track_data.provider->can_use_queue_instead_of_seeking()
+                && video_track_data.display->timestamp_is_within_buffered_range(m_target_timestamp);
+            if (can_skip)
+                seek_data->video_tracks_with_skipped_seek.append(video_track_data.track);
+            else
+                video_track_data.display->pause_updates();
         }
 
         seek_data->audio_seeks_in_flight = count_audio_tracks(manager());
@@ -160,6 +180,15 @@ private:
         for (auto const& video_track_data : manager().m_video_track_datas) {
             if (video_track_data.display == nullptr)
                 continue;
+
+            // Skip the provider seek if this track was marked as having buffered frames.
+            if (seek_data->video_tracks_with_skipped_seek.contains_slow(video_track_data.track)) {
+                seek_data->chosen_timestamp = max(seek_data->chosen_timestamp, m_target_timestamp);
+                seek_data->video_seeks_completed++;
+                possibly_complete_seek(seek_data);
+                continue;
+            }
+
             video_track_data.provider->seek(m_target_timestamp, m_mode, [seek_data, seek_mode = m_mode](AK::Duration provider_timestamp) {
                 seek_data->chosen_timestamp = max(seek_data->chosen_timestamp, provider_timestamp);
                 seek_data->video_seeks_completed++;

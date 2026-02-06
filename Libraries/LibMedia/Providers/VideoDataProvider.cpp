@@ -90,9 +90,19 @@ TimedImage VideoDataProvider::retrieve_frame()
     return result;
 }
 
+Optional<AK::Duration> VideoDataProvider::last_frame_timestamp() const
+{
+    return m_thread_data->last_frame_timestamp();
+}
+
 void VideoDataProvider::seek(AK::Duration timestamp, SeekMode seek_mode, SeekCompletionHandler&& completion_handler)
 {
     m_thread_data->seek(timestamp, seek_mode, move(completion_handler));
+}
+
+bool VideoDataProvider::can_use_queue_instead_of_seeking() const
+{
+    return m_thread_data->can_use_queue_instead_of_seeking();
 }
 
 VideoDataProvider::ThreadData::ThreadData(NonnullRefPtr<Core::WeakEventLoopReference> const& main_thread_event_loop, NonnullRefPtr<Demuxer> const& demuxer, Track const& track, RefPtr<MediaTimeProvider> const& time_provider)
@@ -175,6 +185,15 @@ TimedImage VideoDataProvider::ThreadData::take_frame()
     return m_queue.dequeue();
 }
 
+Optional<AK::Duration> VideoDataProvider::ThreadData::last_frame_timestamp() const
+{
+    auto locker = take_lock();
+    VERIFY(can_use_queue_instead_of_seeking());
+    if (m_queue.is_empty())
+        return {};
+    return m_queue.tail().end();
+}
+
 void VideoDataProvider::ThreadData::seek(AK::Duration timestamp, SeekMode seek_mode, SeekCompletionHandler&& completion_handler)
 {
     auto locker = take_lock();
@@ -184,6 +203,16 @@ void VideoDataProvider::ThreadData::seek(AK::Duration timestamp, SeekMode seek_m
     m_seek_mode = seek_mode;
     m_demuxer->set_blocking_reads_aborted_for_track(m_track);
     wake();
+}
+
+bool VideoDataProvider::ThreadData::can_use_queue_instead_of_seeking() const
+{
+    auto locker = take_lock();
+    if (m_seek_id.load(MemoryOrder::memory_order_relaxed) != m_last_processed_seek_id)
+        return false;
+    if (m_decoder_needs_keyframe_next_seek)
+        return false;
+    return true;
 }
 
 void VideoDataProvider::ThreadData::wait_for_start()
@@ -273,7 +302,7 @@ void VideoDataProvider::ThreadData::dispatch_frame_end_time(CodedFrame const& fr
 
 void VideoDataProvider::ThreadData::queue_frame(NonnullOwnPtr<VideoFrame> const& frame)
 {
-    m_queue.enqueue(TimedImage(frame->timestamp(), frame->immutable_bitmap()));
+    m_queue.enqueue(TimedImage(frame->timestamp(), frame->duration(), frame->immutable_bitmap()));
 }
 
 template<typename Callback>
@@ -328,6 +357,7 @@ bool VideoDataProvider::ThreadData::handle_seek()
             timestamp = m_seek_timestamp;
             mode = m_seek_mode;
             m_demuxer->reset_blocking_reads_aborted_for_track(m_track);
+            m_queue.clear();
         }
 
         auto seek_options = mode == SeekMode::Accurate ? DemuxerSeekOptions::None : DemuxerSeekOptions::Force;
@@ -342,8 +372,10 @@ bool VideoDataProvider::ThreadData::handle_seek()
         }
         auto demuxer_seek_result = demuxer_seek_result_or_error.value_or(DemuxerSeekResult::MovedPosition);
 
-        if (demuxer_seek_result == DemuxerSeekResult::MovedPosition)
+        if (demuxer_seek_result == DemuxerSeekResult::MovedPosition) {
+            dbgln("moved");
             m_decoder->flush();
+        }
 
         auto is_desired_coded_frame = [mode, timestamp](CodedFrame const& frame) {
             if (mode == SeekMode::Accurate)
@@ -432,7 +464,7 @@ bool VideoDataProvider::ThreadData::handle_seek()
                 auto current_frame = frame_result.release_value();
                 if (is_desired_decoded_frame(*current_frame)) {
                     auto locker = take_lock();
-                    m_queue.clear();
+                    VERIFY(m_queue.is_empty());
 
                     if (last_frame != nullptr)
                         queue_frame(last_frame.release_nonnull());

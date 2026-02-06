@@ -42,6 +42,11 @@ public:
     void pause_updates();
     void resume_updates();
 
+    AK::Duration current_frame_timestamp() const { return m_current_frame_timestamp; }
+    // Returns true if the timestamp is within the range of buffered frames, i.e., between
+    // the currently displayed frame and the last frame in the provider's queue.
+    bool timestamp_is_within_buffered_range(AK::Duration timestamp) const;
+
     Function<void()> m_on_start_buffering;
 
 private:
@@ -55,6 +60,7 @@ private:
 
     TimedImage m_next_frame;
     RefPtr<Gfx::ImmutableBitmap> m_current_frame;
+    AK::Duration m_current_frame_timestamp;
     bool m_pause_updates { false };
     bool m_has_new_current_frame { false };
 };

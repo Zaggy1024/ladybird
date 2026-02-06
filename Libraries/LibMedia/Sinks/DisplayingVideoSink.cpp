@@ -72,6 +72,7 @@ DisplayingVideoSinkUpdateResult DisplayingVideoSink::update()
         }
         if (m_next_frame.timestamp() > current_time)
             break;
+        m_current_frame_timestamp = m_next_frame.timestamp();
         m_current_frame = m_next_frame.release_image();
         result = DisplayingVideoSinkUpdateResult::NewFrameAvailable;
     }
@@ -99,9 +100,26 @@ void DisplayingVideoSink::resume_updates()
 {
     m_next_frame.clear();
     m_current_frame = nullptr;
+    m_current_frame_timestamp = AK::Duration::zero();
     m_pause_updates = false;
     m_has_new_current_frame = true;
     prepare_current_frame_for_next_update();
+}
+
+bool DisplayingVideoSink::timestamp_is_within_buffered_range(AK::Duration timestamp) const
+{
+    if (timestamp < m_current_frame_timestamp)
+        return false;
+
+    if (m_next_frame.is_valid() && timestamp <= m_next_frame.timestamp())
+        return true;
+
+    if (m_provider == nullptr)
+        return false;
+    auto last_timestamp = m_provider->last_frame_timestamp();
+    if (!last_timestamp.has_value())
+        return false;
+    return timestamp <= last_timestamp.value();
 }
 
 }

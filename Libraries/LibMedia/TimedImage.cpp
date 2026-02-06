@@ -10,8 +10,9 @@
 
 namespace Media {
 
-TimedImage::TimedImage(AK::Duration timestamp, NonnullRefPtr<Gfx::ImmutableBitmap>&& image)
+TimedImage::TimedImage(AK::Duration timestamp, AK::Duration duration, NonnullRefPtr<Gfx::ImmutableBitmap>&& image)
     : m_timestamp(timestamp)
+    , m_duration(duration)
     , m_image(move(image))
 {
 }
@@ -19,10 +20,22 @@ TimedImage::TimedImage(AK::Duration timestamp, NonnullRefPtr<Gfx::ImmutableBitma
 TimedImage::TimedImage() = default;
 TimedImage::~TimedImage() = default;
 
-AK::Duration const& TimedImage::timestamp() const
+AK::Duration TimedImage::timestamp() const
 {
     VERIFY(is_valid());
     return m_timestamp;
+}
+
+AK::Duration TimedImage::duration() const
+{
+    VERIFY(is_valid());
+    return m_duration;
+}
+
+AK::Duration TimedImage::end() const
+{
+    VERIFY(is_valid());
+    return m_timestamp + m_duration;
 }
 
 NonnullRefPtr<Gfx::ImmutableBitmap> TimedImage::image() const

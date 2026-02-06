@@ -15,18 +15,21 @@ namespace Media {
 
 class TimedImage final {
 public:
-    TimedImage(AK::Duration timestamp, NonnullRefPtr<Gfx::ImmutableBitmap>&& image);
+    TimedImage(AK::Duration timestamp, AK::Duration duration, NonnullRefPtr<Gfx::ImmutableBitmap>&& image);
     TimedImage();
     ~TimedImage();
 
     bool is_valid() const { return m_image != nullptr; }
-    AK::Duration const& timestamp() const;
+    AK::Duration timestamp() const;
+    AK::Duration duration() const;
+    AK::Duration end() const;
     NonnullRefPtr<Gfx::ImmutableBitmap> image() const;
     NonnullRefPtr<Gfx::ImmutableBitmap> release_image();
     void clear();
 
 private:
     AK::Duration m_timestamp;
+    AK::Duration m_duration;
     RefPtr<Gfx::ImmutableBitmap> m_image;
 };
 

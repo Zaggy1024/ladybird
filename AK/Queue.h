@@ -64,16 +64,26 @@ public:
         return value;
     }
 
-    T const& head() const
+    T& head()
     {
         VERIFY(!is_empty());
         return m_segments.first()->data[m_index_into_first];
+    }
+
+    T const& head() const
+    {
+        return const_cast<Queue*>(this)->head();
     }
 
     T& tail()
     {
         VERIFY(!is_empty());
         return m_segments.last()->data.last();
+    }
+
+    T const& tail() const
+    {
+        return const_cast<Queue*>(this)->tail();
     }
 
     void clear()

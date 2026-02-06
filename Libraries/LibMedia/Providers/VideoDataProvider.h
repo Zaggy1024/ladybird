@@ -52,8 +52,10 @@ public:
     void resume();
 
     TimedImage retrieve_frame();
+    Optional<AK::Duration> last_frame_timestamp() const;
 
     void seek(AK::Duration timestamp, SeekMode, SeekCompletionHandler&& = nullptr);
+    bool can_use_queue_instead_of_seeking() const;
 
     bool is_blocked() const;
 
@@ -75,8 +77,10 @@ private:
 
         ImageQueue& queue();
         TimedImage take_frame();
+        Optional<AK::Duration> last_frame_timestamp() const;
 
         void seek(AK::Duration timestamp, SeekMode, SeekCompletionHandler&&);
+        bool can_use_queue_instead_of_seeking() const;
 
         void wait_for_start();
         bool should_thread_exit_while_locked() const;
