@@ -4,9 +4,12 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include "AK/Utf16String.h"
+#include <AK/FixedArray.h>
 #include <LibWeb/Bindings/Intrinsics.h>
 #include <LibWeb/Bindings/MediaSourcePrototype.h>
 #include <LibWeb/DOM/Event.h>
+#include <LibWeb/HTML/HTMLMediaElement.h>
 #include <LibWeb/MediaSourceExtensions/EventNames.h>
 #include <LibWeb/MediaSourceExtensions/MediaSource.h>
 #include <LibWeb/MediaSourceExtensions/SourceBuffer.h>
@@ -14,7 +17,7 @@
 #include <LibWeb/MimeSniff/MimeType.h>
 
 namespace Web::MediaSourceExtensions {
-    
+
 using Bindings::ReadyState;
 
 GC_DEFINE_ALLOCATOR(MediaSource);
@@ -68,6 +71,64 @@ void MediaSource::set_ready_state_to_open()
     m_ready_state = ReadyState::Open;
 }
 
+double MediaSource::duration() const
+{
+    // 1. If the readyState attribute is "closed" then return NaN and abort these steps.
+    if (ready_state_is_closed())
+        return AK::NaN<double>;
+
+    // 2. Return the current value of the attribute.
+    return m_duration;
+}
+
+WebIDL::ExceptionOr<void> MediaSource::duration_change_algorithm(double new_duration)
+{
+    // 1. If the current value of duration is equal to new duration, then return.
+    if (m_duration == new_duration)
+        return {};
+
+    // FIXME: 2. If new duration is less than the highest presentation timestamp of any buffered coded frames for all SourceBuffer objects in sourceBuffers, then throw an InvalidStateError exception and abort these steps.
+
+    // FIXME: 3. Let highest end time be the largest track buffer ranges end time across all the track buffers across all SourceBuffer objects in sourceBuffers.
+    // FIXME: 4. If new duration is less than highest end time, then
+    {
+        // FIXME: 1. Update new duration to equal highest end time.
+    }
+    // 5. Update duration to new duration.
+    m_duration = new_duration;
+
+    // 6. Use the mirror if necessary algorithm to run the following steps in Window to update the media element's duration:
+    if (media_element_assigned_to())
+    {
+        // 1. Update the media element's duration to new duration.
+        // 2. Run the HTMLMediaElement duration change algorithm.
+        media_element_assigned_to()->set_duration(new_duration);
+    } else {
+        // FIXME: Mirror to the remote media element.
+        return WebIDL::InvalidStateError::create(realm(), "Not implemented"_utf16);
+    }
+
+    return {};
+}
+
+WebIDL::ExceptionOr<void> MediaSource::set_duration(double duration)
+{
+    // 1. If the value being set is negative or NaN then throw a TypeError exception and abort these steps.
+    if (duration < 0 || isnan(duration))
+        return WebIDL::SimpleException { WebIDL::SimpleExceptionType::TypeError, "Value is negative or NaN"_string };
+
+    // 2. If the readyState attribute is not "open" then throw an InvalidStateError exception and abort these steps.
+    if (ready_state() != ReadyState::Open)
+        return WebIDL::InvalidStateError::create(realm(), "MediaSource is not open"_utf16);
+
+    // 3. If the updating attribute equals true on any SourceBuffer in sourceBuffers, then throw an InvalidStateError exception and abort these steps.
+    if (source_buffers()->is_any_buffer_updating())
+        return WebIDL::InvalidStateError::create(realm(), "SourceBuffer is updating"_utf16);
+
+    // 4. Run the duration change algorithm with new duration set to the value being assigned to this attribute. 
+    return duration_change_algorithm(duration);
+}
+
 void MediaSource::fire_sourceopen_event()
 {
     dbgln("fire sourceopen");
@@ -75,11 +136,15 @@ void MediaSource::fire_sourceopen_event()
     dispatch_event(event);
 }
 
-void MediaSource::queue_a_media_source_task(GC::Ref<GC::Function<void()>> task)
+void MediaSource::queue_a_task(GC::Ref<GC::Function<void()>> task)
 {
     // FIXME: The MSE spec does not say what task source to use for its tasks. Should this use the media element's
     //        task source? We may not have access to it if we're in a worker.
-    HTML::queue_a_task(HTML::Task::Source::Unspecified, HTML::main_thread_event_loop(), nullptr, task);
+    GC::Ptr<DOM::Document> document = nullptr;
+    if (media_element_assigned_to() != nullptr)
+        document = media_element_assigned_to()->document();
+
+    HTML::queue_a_task(HTML::Task::Source::Unspecified, HTML::main_thread_event_loop(), document, task);
 }
 
 GC::Ref<SourceBufferList> MediaSource::source_buffers()
@@ -90,6 +155,45 @@ GC::Ref<SourceBufferList> MediaSource::source_buffers()
 GC::Ref<SourceBufferList> MediaSource::active_source_buffers()
 {
     return m_active_source_buffers;
+}
+
+Utf16String MediaSource::next_track_id()
+{
+    if (m_next_track_id_counter_buffer.is_empty()) {
+        m_next_track_id_counter_buffer.resize(1);
+        m_next_track_id_counter_buffer[0] = '1';
+        return "1"_utf16;
+    }
+
+    auto length = m_next_track_id_counter_buffer.size();
+
+    // Resize the buffer for one more leading character if a carry may occur at the first index.
+    auto shifted = false;
+    if (m_next_track_id_counter_buffer[0] == '9') {
+        m_next_track_id_counter_buffer.resize(length + 1);
+        shifted = true;
+    }
+
+    bool carry = true;
+    for (size_t i = length; i-- > 0;) {
+        auto digit = m_next_track_id_counter_buffer[i];
+        VERIFY(digit >= '0' && digit <= '9');
+
+        auto& destination = m_next_track_id_counter_buffer[i + (shifted ? 1 : 0)];
+        if (!carry) {
+            destination = digit;
+        } else if (digit == '9') {
+            destination = '0';
+        } else {
+            destination = static_cast<char>(digit + 1);
+            carry = false;
+        }
+    }
+    if (shifted)
+        m_next_track_id_counter_buffer[0] = carry ? '1' : '0';
+    if (m_next_track_id_counter_buffer[0] == '0')
+        return Utf16String::from_ascii_without_validation(m_next_track_id_counter_buffer.bytes().slice(1));
+    return Utf16String::from_ascii_without_validation(m_next_track_id_counter_buffer);
 }
 
 void MediaSource::set_assigned_to_media_element(Badge<HTML::HTMLMediaElement>, HTML::HTMLMediaElement& media_element)

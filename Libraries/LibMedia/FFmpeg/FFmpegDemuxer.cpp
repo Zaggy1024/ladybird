@@ -57,9 +57,11 @@ static DecoderErrorOr<Track> create_track_from_stream(AVStream const& stream)
             return Utf16String();
         return Utf16String::from_utf8(StringView(name_entry->value, strlen(name_entry->value)));
     };
+    // FIXME: Determine the track kind (more?) correctly according to https://dev.w3.org/html5/html-sourcing-inband-tracks/.
+    auto kind = Track::Kind::Metadata;
     auto name = get_string_metadata("title");
     auto language = get_string_metadata("language");
-    Track track(type, stream.index, name, language);
+    Track track(type, stream.index, kind, name, language);
 
     if (type == TrackType::Video) {
         auto color_primaries = static_cast<ColorPrimaries>(stream.codecpar->color_primaries);

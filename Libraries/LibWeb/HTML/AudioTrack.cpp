@@ -20,7 +20,7 @@ namespace Web::HTML {
 
 GC_DEFINE_ALLOCATOR(AudioTrack);
 
-AudioTrack::AudioTrack(JS::Realm& realm, GC::Ref<HTMLMediaElement> media_element, Media::Track const& track)
+AudioTrack::AudioTrack(JS::Realm& realm, GC::Ptr<HTMLMediaElement> media_element, Media::Track const& track)
     : MediaTrackBase(realm, media_element, track)
 {
 }
@@ -47,18 +47,21 @@ void AudioTrack::set_enabled(bool enabled)
     // value of the attribute on the AudioTrack object.)
     if (m_enabled == enabled)
         return;
+    m_enabled = enabled;
+
+    if (media_element() == nullptr)
+        return;
 
     if (m_audio_track_list) {
         // Whenever an audio track in an AudioTrackList that was disabled is enabled, and whenever one that was enabled
         // is disabled, the user agent must queue a media element task given the media element to fire an event named
         // change at the AudioTrackList object.
-        media_element().queue_a_media_element_task([this]() {
+        media_element()->queue_a_media_element_task([this]() {
             m_audio_track_list->dispatch_event(DOM::Event::create(realm(), HTML::EventNames::change));
         });
     }
 
-    m_enabled = enabled;
-    media_element().set_audio_track_enabled({}, this, enabled);
+    media_element()->set_audio_track_enabled({}, this, enabled);
 }
 
 }

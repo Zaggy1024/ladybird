@@ -9,6 +9,7 @@
 #include <AK/String.h>
 #include <LibGC/Ptr.h>
 #include <LibJS/Forward.h>
+#include <LibMedia/Track.h>
 #include <LibWeb/Bindings/TextTrackPrototype.h>
 #include <LibWeb/DOM/EventTarget.h>
 #include <LibWeb/Forward.h>
@@ -34,15 +35,16 @@ public:
 
     Bindings::TextTrackKind kind();
     void set_kind(Bindings::TextTrackKind);
+    void set_kind(Media::Track::Kind);
 
-    String label();
-    void set_label(String);
+    Utf16String label();
+    void set_label(Utf16String const&);
 
-    String language();
-    void set_language(String);
+    Utf16String language();
+    void set_language(Utf16String const&);
 
-    String id();
-    void set_id(String);
+    Utf16String id();
+    void set_id(Utf16String const&);
 
     Bindings::TextTrackMode mode();
     void set_mode(Bindings::TextTrackMode);
@@ -63,10 +65,10 @@ private:
     virtual void visit_edges(Cell::Visitor&) override;
 
     Bindings::TextTrackKind m_kind { Bindings::TextTrackKind::Subtitles };
-    String m_label {};
-    String m_language {};
+    Utf16String m_label {};
+    Utf16String m_language {};
 
-    String m_id {};
+    Utf16String m_id {};
 
     Bindings::TextTrackMode m_mode { Bindings::TextTrackMode::Disabled };
 

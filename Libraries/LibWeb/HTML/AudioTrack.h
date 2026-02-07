@@ -27,7 +27,7 @@ public:
     void set_enabled(bool enabled);
 
 private:
-    AudioTrack(JS::Realm&, GC::Ref<HTMLMediaElement>, Media::Track const&);
+    AudioTrack(JS::Realm&, GC::Ptr<HTMLMediaElement>, Media::Track const&);
 
     virtual void initialize(JS::Realm&) override;
     virtual void visit_edges(Cell::Visitor&) override;

@@ -49,35 +49,55 @@ void TextTrack::set_kind(Bindings::TextTrackKind kind)
     m_kind = kind;
 }
 
+void TextTrack::set_kind(Media::Track::Kind kind)
+{
+    m_kind = [&] {
+        switch (kind) {
+        case Media::Track::Kind::Subtitles:
+            return Bindings::TextTrackKind::Subtitles;
+        case Media::Track::Kind::Captions:
+            return Bindings::TextTrackKind::Captions;
+        case Media::Track::Kind::Descriptions:
+            return Bindings::TextTrackKind::Descriptions;
+        case Media::Track::Kind::Chapters:
+            return Bindings::TextTrackKind::Chapters;
+        case Media::Track::Kind::Metadata:
+            return Bindings::TextTrackKind::Metadata;
+        default:
+            VERIFY_NOT_REACHED();
+        }
+    }();
+}
+
 // https://html.spec.whatwg.org/multipage/media.html#dom-texttrack-label
-String TextTrack::label()
+Utf16String TextTrack::label()
 {
     return m_label;
 }
 
-void TextTrack::set_label(String label)
+void TextTrack::set_label(Utf16String const& label)
 {
     m_label = label;
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#dom-texttrack-language
-String TextTrack::language()
+Utf16String TextTrack::language()
 {
     return m_language;
 }
 
-void TextTrack::set_language(String language)
+void TextTrack::set_language(Utf16String const& language)
 {
     m_language = language;
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#dom-texttrack-id
-String TextTrack::id()
+Utf16String TextTrack::id()
 {
     return m_id;
 }
 
-void TextTrack::set_id(String id)
+void TextTrack::set_id(Utf16String const& id)
 {
     m_id = id;
 }

@@ -21,9 +21,14 @@ enum class SegmentType : u8 {
 
 class ByteStreamParser {
 public:
-    size_t check_for_bytes_to_skip(ReadonlyBytes);
-    SegmentType sniff_segment_type(ReadonlyBytes);
-    Media::DecoderErrorOr<size_t> parse_initialization_segment(ReadonlyBytes);
+    virtual ~ByteStreamParser() = default;
+
+    virtual size_t check_for_bytes_to_skip(ReadonlyBytes) = 0;
+    virtual SegmentType sniff_segment_type(ReadonlyBytes) = 0;
+    virtual Media::DecoderErrorOr<size_t> parse_initialization_segment(ReadonlyBytes) = 0;
+    virtual Vector<Media::Track> const& video_tracks() = 0;
+    virtual Vector<Media::Track> const& audio_tracks() = 0;
+    virtual Vector<Media::Track> const& text_tracks() = 0;
 };
 
 }

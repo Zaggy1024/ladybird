@@ -28,7 +28,7 @@ public:
     void set_selected(bool selected);
 
 private:
-    VideoTrack(JS::Realm&, GC::Ref<HTMLMediaElement>, Media::Track const& track);
+    VideoTrack(JS::Realm&, GC::Ptr<HTMLMediaElement>, Media::Track const& track);
 
     virtual void initialize(JS::Realm&) override;
     virtual void visit_edges(Cell::Visitor&) override;

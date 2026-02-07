@@ -6,9 +6,11 @@
 
 #pragma once
 
+#include <AK/IDAllocator.h>
+#include <AK/Math.h>
+#include <LibMedia/Forward.h>
 #include <LibWeb/Bindings/MediaSourcePrototype.h>
 #include <LibWeb/DOM/EventTarget.h>
-#include <LibMedia/Forward.h>
 
 namespace Web::MediaSourceExtensions {
 
@@ -23,6 +25,12 @@ public:
     GC::Ref<SourceBufferList> source_buffers();
     GC::Ref<SourceBufferList> active_source_buffers();
 
+    double duration() const;
+    WebIDL::ExceptionOr<void> set_duration(double);
+    WebIDL::ExceptionOr<void> duration_change_algorithm(double new_duration);
+
+    Utf16String next_track_id();
+
     Bindings::ReadyState ready_state() const;
     bool ready_state_is_closed() const;
     void set_has_ever_been_attached();
@@ -30,7 +38,7 @@ public:
 
     void fire_sourceopen_event();
 
-    static void queue_a_media_source_task(GC::Ref<GC::Function<void()>>);
+    void queue_a_task(GC::Ref<GC::Function<void()>>);
 
     // https://w3c.github.io/media-source/#dom-mediasource-canconstructindedicatedworker
     static bool can_construct_in_dedicated_worker(JS::VM&) { return false; }
@@ -64,11 +72,23 @@ protected:
     virtual GC::Ref<SourceBuffer> make_source_buffer();
 
 private:
-    Bindings::ReadyState m_ready_state { Bindings::ReadyState::Closed };
-    bool m_has_ever_been_attached { false };
+    // https://www.w3.org/TR/media-source-2/#dom-mediasource-sourcebuffers
     GC::Ref<SourceBufferList> m_source_buffers;
+    // https://www.w3.org/TR/media-source-2/#dom-mediasource-activesourcebuffers
     GC::Ref<SourceBufferList> m_active_source_buffers;
+
+    // https://www.w3.org/TR/media-source-2/#dom-mediasource-readystate
+    Bindings::ReadyState m_ready_state { Bindings::ReadyState::Closed };
+
+    // https://www.w3.org/TR/media-source-2/#duration-attribute
+    double m_duration { AK::NaN<double> };
+
+    // https://www.w3.org/TR/media-source-2/#dfn-has-ever-been-attached
+    bool m_has_ever_been_attached { false };
+
     GC::Ptr<HTML::HTMLMediaElement> m_media_element_assigned_to;
+    ByteBuffer m_next_track_id_counter_buffer;
+    
 };
 
 }

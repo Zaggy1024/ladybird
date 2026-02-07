@@ -76,7 +76,9 @@ static Track track_from_track_entry(TrackEntry const& track_entry)
             return Utf16String::from_utf8(track_entry.language_bcp_47().value());
         return Utf16String::from_utf8(track_entry.language());
     }();
-    Track track(track_type_from_matroska_track_type(track_entry.track_type()), track_entry.track_number(), name, language);
+    // FIXME: Determine the track kind correctly according to https://dev.w3.org/html5/html-sourcing-inband-tracks/.
+    auto kind = Track::Kind::Metadata;
+    Track track(track_type_from_matroska_track_type(track_entry.track_type()), track_entry.track_number(), kind, name, language);
 
     if (track.type() == TrackType::Video) {
         auto video_track = track_entry.video_track();

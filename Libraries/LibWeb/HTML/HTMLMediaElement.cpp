@@ -569,7 +569,7 @@ void HTMLMediaElement::update_volume()
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#dom-media-addtexttrack
-GC::Ref<TextTrack> HTMLMediaElement::add_text_track(Bindings::TextTrackKind kind, String const& label, String const& language)
+GC::Ref<TextTrack> HTMLMediaElement::add_text_track(Bindings::TextTrackKind kind, Utf16String const& label, Utf16String const& language)
 {
     // 1. Create a new TextTrack object.
     auto text_track = TextTrack::create(this->realm());
@@ -1207,16 +1207,9 @@ void HTMLMediaElement::fetch_local_resource(MediaProviderObject const& media_pro
             // 4. Set the readyState attribute to "open".
             media_source->set_ready_state_to_open();
             // 5. Queue a task to fire an event named sourceopen at the MediaSource.
-            queue_a_media_element_task([weak_self = GC::Weak(*this), weak_media_source = GC::Weak(media_source)] {
-                if (!weak_self || !weak_media_source)
-                    return;
-                if (!weak_self->assigned_media_provider_object().has<GC::Ref<MediaSourceExtensions::MediaSource>>())
-                    return;
-                auto& media_source = weak_self->assigned_media_provider_object().get<GC::Ref<MediaSourceExtensions::MediaSource>>();
-                if (media_source != weak_media_source)
-                    return;
+            media_source->queue_a_task(GC::create_function(heap(), [self = GC::Ref(*this), media_source = GC::Ref(media_source)] {
                 media_source->fire_sourceopen_event();
-            });
+            }));
 
             // 4. Continue the resource fetch algorithm by running the remaining
             //    "Otherwise (mode is local)" steps, with these requirements:
@@ -1494,7 +1487,7 @@ void HTMLMediaElement::on_audio_track_added(Media::Track const& track)
     auto audio_track = realm.create<AudioTrack>(realm, *this, track);
 
     // 2. Update the media element's audioTracks attribute's AudioTrackList object with the new AudioTrack object.
-    m_audio_tracks->add_track({}, audio_track);
+    m_audio_tracks->add_track(audio_track);
 
     // 3. Let enable be unknown.
     auto enable = TriState::Unknown;
@@ -1520,18 +1513,6 @@ void HTMLMediaElement::on_audio_track_added(Media::Track const& track)
     if (enable == TriState::True)
         audio_track->set_enabled(true);
 
-    // NB: According to https://dev.w3.org/html5/html-sourcing-inband-tracks/, kind should be set according to format, and the following criteria within
-    //     the specified formats.
-    // WebM:
-    //     - "main": the FlagDefault element is set on the track
-    //     - "translation": not first audio (video) track
-    // MP4:
-    //     - "main": first audio (video) track
-    //     - "translation": not first audio (video) track
-    // Though the behavior for WebM is not clear if its first track is not marked with FlagDefault, the idea here seems to be that the preferred
-    // track should be marked as "main", and the rest should be marked as "translation".
-    audio_track->set_kind(enable == TriState::True ? "main"_utf16 : "translation"_utf16);
-
     // 7. Fire an event named addtrack at this AudioTrackList object, using TrackEvent, with the track attribute initialized to the new AudioTrack object.
     TrackEventInit event_init {};
     event_init.track = GC::make_root(audio_track);
@@ -1548,7 +1529,7 @@ void HTMLMediaElement::on_video_track_added(Media::Track const& track)
     auto video_track = realm.create<VideoTrack>(realm, *this, track);
 
     // 2. Update the media element's videoTracks attribute's VideoTrackList object with the new VideoTrack object.
-    m_video_tracks->add_track({}, *video_track);
+    m_video_tracks->add_track(video_track);
 
     // 3. Let enable be unknown.
     auto enable = TriState::Unknown;
@@ -1785,8 +1766,8 @@ void HTMLMediaElement::forget_media_resource_specific_tracks()
     // of text tracks all the media-resource-specific text tracks, then empty the media element's audioTracks attribute's AudioTrackList object, then
     // empty the media element's videoTracks attribute's VideoTrackList object. No events (in particular, no removetrack events) are fired as part of
     // this; the error and emptied events, fired by the algorithms that invoke this one, can be used instead.
-    m_audio_tracks->remove_all_tracks({});
-    m_video_tracks->remove_all_tracks({});
+    m_audio_tracks->remove_all_tracks();
+    m_video_tracks->remove_all_tracks();
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#ready-states:media-element-3

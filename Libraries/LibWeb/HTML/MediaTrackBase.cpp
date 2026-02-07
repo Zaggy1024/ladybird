@@ -10,12 +10,13 @@
 
 namespace Web::HTML {
 
-MediaTrackBase::MediaTrackBase(JS::Realm& realm, GC::Ref<HTMLMediaElement> media_element, Media::Track const& track)
+MediaTrackBase::MediaTrackBase(JS::Realm& realm, GC::Ptr<HTMLMediaElement> media_element, Media::Track const& track)
     : PlatformObject(realm)
     , m_media_element(media_element)
     , m_track_in_playback_manager(track)
     , m_id(Utf16String::number(track.identifier()))
-    , m_label(track.name())
+    , m_kind(Media::track_kind_to_string(track.kind()))
+    , m_label(track.label())
 {
     // https://html.spec.whatwg.org/multipage/media.html#dom-audiotrack-language
     // https://html.spec.whatwg.org/multipage/media.html#dom-videotrack-language

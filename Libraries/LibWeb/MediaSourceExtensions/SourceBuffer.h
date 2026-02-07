@@ -11,6 +11,7 @@
 #include <AK/HashMap.h>
 #include <AK/Math.h>
 #include <AK/Optional.h>
+#include <LibMedia/Track.h>
 #include <LibWeb/Bindings/SourceBufferPrototype.h>
 #include <LibWeb/DOM/EventTarget.h>
 
@@ -72,6 +73,8 @@ public:
     WebIDL::ExceptionOr<void> change_type(String const& type);
     WebIDL::ExceptionOr<void> remove(double start, double end);
 
+    bool first_initialization_segment_received() const { return m_first_initialization_segment_received_flag; }
+
 protected:
     SourceBuffer(JS::Realm&, MediaSource&);
 
@@ -130,6 +133,15 @@ private:
 
     // https://w3c.github.io/media-source/#dom-sourcebuffer-timestampoffset
     double m_timestamp_offset { 0 };
+
+    // https://w3c.github.io/media-source/#dom-sourcebuffer-audiotracks
+    GC::Ref<HTML::AudioTrackList> m_audio_tracks;
+
+    // https://w3c.github.io/media-source/#dom-sourcebuffer-videotracks
+    GC::Ref<HTML::VideoTrackList> m_video_tracks;
+
+    // https://w3c.github.io/media-source/#dom-sourcebuffer-texttracks
+    GC::Ref<HTML::TextTrackList> m_text_tracks;
 
     // https://w3c.github.io/media-source/#dom-sourcebuffer-appendwindowstart
     double m_append_window_start { 0 };

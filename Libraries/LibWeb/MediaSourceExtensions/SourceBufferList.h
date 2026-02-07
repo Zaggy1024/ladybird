@@ -18,6 +18,9 @@ class SourceBufferList : public DOM::EventTarget {
 public:
     void append(GC::Ref<SourceBuffer>);
 
+    bool have_received_all_first_initialization_segments() const;
+    bool is_any_buffer_updating() const;
+
     size_t length() const;
     GC::Ref<SourceBuffer> const& item(u32 index) const;
 

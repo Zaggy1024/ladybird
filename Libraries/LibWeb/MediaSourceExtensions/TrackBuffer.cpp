@@ -9,7 +9,10 @@
 
 namespace Web::MediaSourceExtensions {
 
-TrackBuffer::TrackBuffer() = default;
+TrackBuffer::TrackBuffer(Media::Track const& track)
+    : m_track(track)
+{
+}
 
 TrackBuffer::~TrackBuffer()
 {

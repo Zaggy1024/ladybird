@@ -20,7 +20,7 @@ namespace Web::HTML {
 
 GC_DEFINE_ALLOCATOR(VideoTrack);
 
-VideoTrack::VideoTrack(JS::Realm& realm, GC::Ref<HTMLMediaElement> media_element, Media::Track const& track)
+VideoTrack::VideoTrack(JS::Realm& realm, GC::Ptr<HTMLMediaElement> media_element, Media::Track const& track)
     : MediaTrackBase(realm, media_element, track)
 {
 }
@@ -45,6 +45,10 @@ void VideoTrack::set_selected(bool selected)
     // On setting, it must select the track if the new value is true, and unselect it otherwise.
     if (m_selected == selected)
         return;
+    m_selected = selected;
+
+    if (media_element() == nullptr)
+        return;
 
     // If the track is in a VideoTrackList, then all the other VideoTrack objects in that list must be unselected. (If the track is
     // no longer in a VideoTrackList object, then the track being selected or unselected has no effect beyond changing the value of
@@ -63,16 +67,14 @@ void VideoTrack::set_selected(bool selected)
         auto selected_track_was_unselected_without_another_selection = m_selected && !selected;
 
         if (previously_unselected_track_is_selected || selected_track_was_unselected_without_another_selection) {
-            media_element().queue_a_media_element_task([this]() {
+            media_element()->queue_a_media_element_task([this]() {
                 m_video_track_list->dispatch_event(DOM::Event::create(realm(), HTML::EventNames::change));
             });
         }
     }
 
-    m_selected = selected;
-
     // AD-HOC: Inform the element node that we have (un)selected a video track for layout.
-    media_element().set_selected_video_track({}, m_selected ? this : nullptr);
+    media_element()->set_selected_video_track({}, m_selected ? this : nullptr);
 }
 
 }

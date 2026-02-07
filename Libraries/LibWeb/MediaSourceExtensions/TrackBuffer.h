@@ -9,13 +9,14 @@
 #include <AK/Optional.h>
 #include <LibGC/Ptr.h>
 #include <LibJS/Heap/Cell.h>
+#include <LibMedia/Track.h>
 
 namespace Web::MediaSourceExtensions {
 
 // https://w3c.github.io/media-source/#track-buffers
 class TrackBuffer final {
 public:
-    TrackBuffer();
+    TrackBuffer(Media::Track const& track);
     ~TrackBuffer();
 
     // https://w3c.github.io/media-source/#last-decode-timestamp
@@ -52,6 +53,8 @@ public:
     Optional<double> next_random_access_point_timestamp_after(double timestamp) const;
 
 private:
+    Media::Track m_track;
+
     // https://w3c.github.io/media-source/#last-decode-timestamp
     Optional<double> m_last_decode_timestamp;
 

@@ -94,6 +94,7 @@ public:
         HaveEnoughData,
     };
     ReadyState ready_state() const { return m_ready_state; }
+    void set_ready_state(ReadyState);
     bool blocked() const;
     bool stalled() const;
 
@@ -110,6 +111,7 @@ public:
     void set_current_playback_position(double);
 
     double duration() const;
+    void set_duration(double);
     bool show_poster() const { return m_show_poster; }
     bool paused() const { return m_paused; }
     bool ended() const;
@@ -144,7 +146,7 @@ public:
 
     void update_video_frame_and_timeline();
 
-    GC::Ref<TextTrack> add_text_track(Bindings::TextTrackKind kind, String const& label, String const& language);
+    GC::Ref<TextTrack> add_text_track(Bindings::TextTrackKind kind, Utf16String const& label, Utf16String const& language);
 
     bool handle_keydown(Badge<Web::EventHandler>, UIEvents::KeyCode, u32 modifiers);
 
@@ -230,7 +232,6 @@ private:
 
     WebIDL::ExceptionOr<void> handle_media_source_failure(Span<GC::Ref<WebIDL::Promise>> promises, String error_message);
     void forget_media_resource_specific_tracks();
-    void set_ready_state(ReadyState);
 
     void on_audio_track_added(Media::Track const&);
     void on_video_track_added(Media::Track const&);
@@ -243,7 +244,6 @@ private:
     void notify_about_playing();
     void set_show_poster(bool);
     void set_paused(bool);
-    void set_duration(double);
     void set_ended(bool);
 
     void volume_or_muted_attribute_changed();

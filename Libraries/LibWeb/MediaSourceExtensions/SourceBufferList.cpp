@@ -8,6 +8,7 @@
 #include <LibWeb/Bindings/SourceBufferListPrototype.h>
 #include <LibWeb/DOM/Event.h>
 #include <LibWeb/MediaSourceExtensions/EventNames.h>
+#include <LibWeb/MediaSourceExtensions/SourceBuffer.h>
 #include <LibWeb/MediaSourceExtensions/SourceBufferList.h>
 
 namespace Web::MediaSourceExtensions {
@@ -40,6 +41,26 @@ void SourceBufferList::append(GC::Ref<SourceBuffer> buffer)
             return;
         weak_self->dispatch_event(DOM::Event::create(weak_self->realm(), EventNames::addsourcebuffer));
     }));
+}
+
+bool SourceBufferList::have_received_all_first_initialization_segments() const
+{
+    for (auto const& buffer : m_buffers) {
+        if (!buffer->first_initialization_segment_received())
+            return false;
+    }
+
+    return true;
+}
+
+bool SourceBufferList::is_any_buffer_updating() const
+{
+    for (auto const& buffer : m_buffers) {
+        if (!buffer->updating())
+            return true;
+    }
+
+    return false;
 }
 
 size_t SourceBufferList::length() const
