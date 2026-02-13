@@ -269,7 +269,7 @@ JS::ThrowCompletionOr<GC::Ref<WebIDL::Promise>> FontFaceSet::load(String const& 
     GC::Ref font_face_set = *this;
     auto promise = WebIDL::create_promise(realm);
 
-    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(realm.heap(), [&realm, font_face_set, promise, font, text]() mutable {
+    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(realm.heap(), [&realm, font_face_set, promise, font = font, text = text]() mutable {
         // 3. Find the matching font faces from font face set using the font and text arguments passed to the function,
         //    and let font face list be the return value (ignoring the found faces flag). If a syntax error was returned,
         //    reject promise with a SyntaxError exception and terminate these steps.

@@ -225,7 +225,7 @@ ErrorOr<NonnullRefPtr<Core::LocalServer>> Session::create_server(NonnullRefPtr<S
 
         auto const& window_handle = maybe_window_handle.value().as_string();
 
-        web_content_connection->on_close = [this, window_handle]() {
+        web_content_connection->on_close = [this, window_handle = window_handle]() {
             dbgln_if(WEBDRIVER_DEBUG, "Window {} was closed remotely.", window_handle);
             m_windows.remove(window_handle);
             if (m_windows.is_empty())

@@ -122,7 +122,7 @@ void ImageRequest::fetch_image(JS::Realm& realm, GC::Ref<Fetch::Infrastructure::
     m_shared_resource_request->fetch_resource(realm, request);
 }
 
-void ImageRequest::add_callbacks(Function<void()> on_finish, Function<void()> on_fail)
+void ImageRequest::add_callbacks(ESCAPING Function<void()> on_finish, ESCAPING Function<void()> on_fail)
 {
     VERIFY(m_shared_resource_request);
     m_shared_resource_request->add_callbacks(move(on_finish), move(on_fail));

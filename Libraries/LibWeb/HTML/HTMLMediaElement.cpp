@@ -1084,7 +1084,7 @@ void HTMLMediaElement::fetch_resource(NonnullRefPtr<FetchData> const& fetch_data
         // 8. Fetch request, with processResponse set to the following steps given response response:
         Fetch::Infrastructure::FetchAlgorithms::Input fetch_algorithms_input {};
 
-        fetch_algorithms_input.process_response = [this, byte_range = move(byte_range), fetch_data, fetch_generation](auto response) mutable {
+        fetch_algorithms_input.process_response = [this, byte_range = move(byte_range), fetch_data = fetch_data, fetch_generation](auto response) mutable {
             // FIXME: If the response is CORS cross-origin, we must use its internal response to query any of its data. See:
             //        https://github.com/whatwg/html/issues/9355
             response = response->unsafe_response();
@@ -1486,7 +1486,7 @@ void HTMLMediaElement::set_up_playback_manager(NonnullRefPtr<FetchData> const& f
     };
 
     // -> If the media data can be fetched but is found by inspection to be in an unsupported format, or can otherwise not be rendered at all
-    m_playback_manager->on_unsupported_format_error = [weak_self = GC::Weak(*this), fetch_data](auto&& error) mutable {
+    m_playback_manager->on_unsupported_format_error = [weak_self = GC::Weak(*this), fetch_data = fetch_data](auto&& error) mutable {
         if (!weak_self)
             return;
 

@@ -1430,7 +1430,7 @@ void HTMLInputElement::user_interaction_did_change_input_value(FlyString const& 
     // and for which the user interface involves both interactive manipulation and an explicit commit action,
     // then when the user changes the element's value, the user agent must queue an element task on the user interaction task source
     // given the input element to fire an event named input at the input element, with the bubbles and composed attributes initialized to true
-    queue_an_element_task(HTML::Task::Source::UserInteraction, [this, input_type, data] {
+    queue_an_element_task(HTML::Task::Source::UserInteraction, [this, input_type = input_type, data] {
         // https://w3c.github.io/uievents/#event-type-input
         UIEvents::InputEventInit input_event_init;
         input_event_init.bubbles = true;

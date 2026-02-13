@@ -1275,7 +1275,7 @@ GC::Ref<WebIDL::Promise> SubtleCrypto::decapsulate_key(AlgorithmIdentifier decap
     auto promise = WebIDL::create_promise(realm);
 
     // 9. Return promise and perform the remaining steps in parallel.
-    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(heap, [&realm, &global, &heap, normalized_decapsulation_algorithm = normalized_decapsulation_algorithm.release_value(), promise, decapsulation_key, cipher_text = move(cipher_text), normalized_shared_key_algorithm = normalized_shared_key_algorithm.release_value(), extractable, usages]() -> void {
+    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(heap, [&realm, &global, &heap, normalized_decapsulation_algorithm = normalized_decapsulation_algorithm.release_value(), promise, decapsulation_key, cipher_text = move(cipher_text), normalized_shared_key_algorithm = normalized_shared_key_algorithm.release_value(), extractable, usages = usages]() -> void {
         HTML::TemporaryExecutionContext context(realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes);
         // 10. If the following steps or referenced procedures say to throw an error, queue a global task on the crypto task
         //     source, given realm's global object, to reject promise with the returned error; and then terminate the algorithm.

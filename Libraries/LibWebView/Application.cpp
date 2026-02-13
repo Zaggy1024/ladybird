@@ -514,7 +514,7 @@ static NonnullRefPtr<Core::Timer> load_page_for_screenshot_and_exit(Core::EventL
 
 static void load_page_for_info_and_exit(Core::EventLoop& event_loop, HeadlessWebView& view, URL::URL const& url, WebView::PageInfoType type)
 {
-    view.on_load_finish = [&view, &event_loop, url, type](auto const& loaded_url) {
+    view.on_load_finish = [&view, &event_loop, url = url, type](auto const& loaded_url) {
         if (!url.equals(loaded_url, URL::ExcludeFragment::Yes))
             return;
 

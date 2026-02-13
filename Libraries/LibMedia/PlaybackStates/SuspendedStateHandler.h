@@ -81,7 +81,7 @@ public:
         auto& track_data = manager().get_audio_data_for_track(track);
         VERIFY(manager().m_audio_sink != nullptr);
         track_data.provider->resume();
-        track_data.provider->seek(manager().current_time(), [track, provider = track_data.provider, sink = manager().m_audio_sink] {
+        track_data.provider->seek(manager().current_time(), [track = track, provider = track_data.provider, sink = manager().m_audio_sink] {
             sink->clear_track_data(track);
             provider->suspend();
         });

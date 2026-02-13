@@ -60,7 +60,7 @@ WebIDL::ExceptionOr<GC::Ref<IDBOpenDBRequest>> IDBFactory::open(String const& na
     auto request = IDBOpenDBRequest::create(realm);
 
     // 5. Run these steps in parallel:
-    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(realm.heap(), [&realm, storage_key, name, version, request] {
+    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(realm.heap(), [&realm, storage_key, name = name, version, request] {
         // 1. Let result be the result of opening a database connection, with storageKey, name, version if given and undefined otherwise, and request.
         open_a_database_connection(realm, storage_key.value(), name, version, request, GC::create_function(realm.heap(), [&realm, request](WebIDL::ExceptionOr<GC::Ref<IDBDatabase>> result) {
             // 2. Set request’s processed flag to true.
@@ -138,7 +138,7 @@ WebIDL::ExceptionOr<GC::Ref<IDBOpenDBRequest>> IDBFactory::delete_database(Strin
     auto request = IDBOpenDBRequest::create(realm);
 
     // 4. Run these steps in parallel:
-    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(realm.heap(), [&realm, storage_key, name, request] {
+    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(realm.heap(), [&realm, storage_key, name = name, request] {
         // 1. Let result be the result of deleting a database, with storageKey, name, and request.
         delete_a_database(realm, storage_key.value(), name, request, GC::create_function(realm.heap(), [&realm, request](WebIDL::ExceptionOr<u64> result) {
             // 2. Set request’s processed flag to true.

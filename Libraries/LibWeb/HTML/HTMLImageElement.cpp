@@ -826,7 +826,7 @@ after_step_7:
 void HTMLImageElement::add_callbacks_to_image_request(GC::Ref<ImageRequest> image_request, bool maybe_omit_events, String const& url_string, String const& previous_url)
 {
     image_request->add_callbacks(
-        [this, image_request, maybe_omit_events, url_string, previous_url]() {
+        [this, image_request, maybe_omit_events, url_string = url_string, previous_url = previous_url]() {
             batching_dispatcher().enqueue(GC::create_function(realm().heap(), [this, image_request, maybe_omit_events, url_string, previous_url] {
                 VERIFY(image_request->shared_resource_request());
                 auto image_data = image_request->shared_resource_request()->image_data();
@@ -869,7 +869,7 @@ void HTMLImageElement::add_callbacks_to_image_request(GC::Ref<ImageRequest> imag
                 m_load_event_delayer.clear();
             }));
         },
-        [this, image_request, maybe_omit_events, url_string, previous_url]() {
+        [this, image_request, maybe_omit_events, url_string = url_string, previous_url = previous_url]() {
             // The image data is not in a supported file format;
 
             // the user agent must set image request's state to broken,

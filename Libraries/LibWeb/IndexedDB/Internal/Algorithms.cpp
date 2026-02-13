@@ -609,7 +609,7 @@ void abort_a_transaction(GC::Ref<IDBTransaction> transaction, GC::Ptr<WebIDL::DO
     }
 
     // 6. For each request of transaction’s request list,
-    for (auto const& request : transaction->request_list()) {
+    for (auto& request : transaction->request_list()) {
         // FIXME: abort the steps to asynchronously execute a request for request,
 
         // set request’s processed flag to true

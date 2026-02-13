@@ -291,7 +291,7 @@ void VideoDataProvider::ThreadData::process_seek_on_main_thread(u32 seek_id, Cal
 void VideoDataProvider::ThreadData::resolve_seek(u32 seek_id, AK::Duration const& timestamp)
 {
     m_is_in_error_state = false;
-    process_seek_on_main_thread(seek_id, [timestamp](auto& self) {
+    process_seek_on_main_thread(seek_id, [timestamp = timestamp](auto& self) {
         auto handler = move(self->m_seek_completion_handler);
         if (handler)
             handler(timestamp);

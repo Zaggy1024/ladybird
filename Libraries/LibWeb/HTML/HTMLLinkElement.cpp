@@ -905,7 +905,7 @@ static NonnullRefPtr<Core::Promise<bool>> decode_favicon(ReadonlyBytes favicon_d
         return promise;
     }
 
-    auto on_failed_decode = [favicon_url, promise]([[maybe_unused]] Error& error) {
+    auto on_failed_decode = [favicon_url = favicon_url, promise]([[maybe_unused]] Error& error) {
         dbgln_if(IMAGE_DECODER_DEBUG, "Failed to decode favicon {}: {}", favicon_url, error);
         promise->reject(move(error));
     };

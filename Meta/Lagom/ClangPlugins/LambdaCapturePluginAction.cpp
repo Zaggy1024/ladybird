@@ -86,6 +86,22 @@ public:
                                     cxxOperatorCallExpr(has(declRefExpr(to(equalsBoundNode("lambda")))))))))),
                         parmVarDecl(hasAnnotation("serenity::escaping")).bind("lambda-param-ref")))),
             this);
+
+        // Check for non-trivially-copyable types captured by value where the source type
+        // is const (e.g. from a const T& parameter). The lambda member will be const T,
+        // making it impossible to move from even in the lambda's move constructor. This
+        // causes unnecessary copies (e.g. extra ref/unref for RefPtr/NonnullRefPtr) every
+        // time the lambda or a Function containing it is moved.
+        auto const_value_capture = lambdaCapture().bind("const-value-capture");
+
+        m_finder.addMatcher(
+            traverse(
+                clang::TK_IgnoreUnlessSpelledInSource,
+                lambdaExpr(
+                    anyOf(
+                        forEachLambdaCapture(const_value_capture),
+                        hasAnyCapture(const_value_capture)))),
+            this);
     }
 
     void HandleTranslationUnit(clang::ASTContext& Ctx) override
@@ -112,6 +128,27 @@ public:
             }
             diag_id = diag_engine.getCustomDiagID(clang::DiagnosticsEngine::Note, "Annotate the variable declaration with IGNORE_USE_IN_ESCAPING_LAMBDA if it outlives the lambda");
             diag_engine.Report(captured_var_location, diag_id);
+        }
+
+        if (auto const* capture = result.Nodes.getNodeAs<clang::LambdaCapture>("const-value-capture")) {
+            if (capture->getCaptureKind() != clang::LCK_ByCopy)
+                return;
+
+            // The lambda's data member type is the referenced type of the captured variable
+            // (i.e. references are stripped, but const is preserved). Only flag captures where
+            // the source type is const-qualified, since those produce a const member that can't
+            // be moved from even in the lambda's move constructor.
+            auto captured_type = capture->getCapturedVar()->getType().getNonReferenceType();
+            if (!captured_type.isConstQualified())
+                return;
+            if (captured_type->isDependentType() || captured_type.isTriviallyCopyableType(*result.Context))
+                return;
+
+            auto diag_id = diag_engine.getCustomDiagID(clang::DiagnosticsEngine::Error, "non-trivially-copyable type %0 is captured by value as a const copy in a lambda");
+            diag_engine.Report(capture->getLocation(), diag_id) << captured_type.getUnqualifiedType();
+
+            auto note_id = diag_engine.getCustomDiagID(clang::DiagnosticsEngine::Note, "capture by reference, remove const from the source declaration, or use a capture initializer (e.g. [name = name])");
+            diag_engine.Report(capture->getLocation(), note_id);
         }
     }
 

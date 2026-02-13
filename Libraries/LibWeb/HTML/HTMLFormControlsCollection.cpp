@@ -68,7 +68,7 @@ Variant<Empty, DOM::Element*, GC::Root<RadioNodeList>> HTMLFormControlsCollectio
     // 4. Otherwise, create a new RadioNodeList object representing a live view of the HTMLFormControlsCollection object, further filtered so that the only nodes in the
     //    RadioNodeList object are those that have either an id attribute or a name attribute equal to name. The nodes in the RadioNodeList object must be sorted in tree
     //    order. Return that RadioNodeList object.
-    return GC::make_root(RadioNodeList::create(realm(), root(), DOM::LiveNodeList::Scope::Descendants, [name](auto const& node) {
+    return GC::make_root(RadioNodeList::create(realm(), root(), DOM::LiveNodeList::Scope::Descendants, [name = name](auto const& node) {
         if (!is<DOM::Element>(node))
             return false;
 

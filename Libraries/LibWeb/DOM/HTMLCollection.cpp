@@ -18,12 +18,12 @@ namespace Web::DOM {
 
 GC_DEFINE_ALLOCATOR(HTMLCollection);
 
-GC::Ref<HTMLCollection> HTMLCollection::create(ParentNode& root, Scope scope, Function<bool(Element const&)> filter, Function<bool(Element const&, Element const&)> sort)
+GC::Ref<HTMLCollection> HTMLCollection::create(ParentNode& root, Scope scope, ESCAPING Function<bool(Element const&)> filter, ESCAPING Function<bool(Element const&, Element const&)> sort)
 {
     return root.realm().create<HTMLCollection>(root, scope, move(filter), move(sort));
 }
 
-HTMLCollection::HTMLCollection(ParentNode& root, Scope scope, Function<bool(Element const&)> filter, Function<bool(Element const&, Element const&)> sort)
+HTMLCollection::HTMLCollection(ParentNode& root, Scope scope, ESCAPING Function<bool(Element const&)> filter, ESCAPING Function<bool(Element const&, Element const&)> sort)
     : PlatformObject(root.realm())
     , m_root(root)
     , m_filter(move(filter))

@@ -141,7 +141,7 @@ void FileReader::queue_a_task(GC::Ref<GC::Function<void()>> task)
 WebIDL::ExceptionOr<void> FileReader::read_operation(Blob& blob, Type type, Optional<String> const& encoding_name)
 {
     auto& realm = this->realm();
-    auto const blobs_type = blob.type();
+    auto const& blobs_type = blob.type();
 
     // 1. If fr’s state is "loading", throw an InvalidStateError DOMException.
     if (m_state == State::Loading)
@@ -173,7 +173,7 @@ WebIDL::ExceptionOr<void> FileReader::read_operation(Blob& blob, Type type, Opti
     bool is_first_chunk = true;
 
     // 10. In parallel, while true:
-    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(heap(), [this, chunk_promise, reader, bytes, is_first_chunk, &realm, type, encoding_name, blobs_type]() mutable {
+    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(heap(), [this, chunk_promise, reader, bytes, is_first_chunk, &realm, type, encoding_name = encoding_name, blobs_type = blobs_type]() mutable {
         HTML::TemporaryExecutionContext execution_context { realm, HTML::TemporaryExecutionContext::CallbacksEnabled::Yes };
         Optional<MonotonicTime> progress_timer;
 

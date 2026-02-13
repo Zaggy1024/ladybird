@@ -162,7 +162,7 @@ WebIDL::ExceptionOr<GC::Ref<WebIDL::Promise>> ClipboardItem::get_type(String con
                     return JS::js_undefined();
                 }),
                 // 2. If representationDataPromise was rejected, then:
-                GC::create_function(realm.heap(), [&realm, type, promise](JS::Value) -> WebIDL::ExceptionOr<JS::Value> {
+                GC::create_function(realm.heap(), [&realm, type = type, promise](JS::Value) -> WebIDL::ExceptionOr<JS::Value> {
                     // 1. Reject p with "NotFoundError" DOMException in realm.
                     WebIDL::reject_promise(realm, promise, WebIDL::NotFoundError::create(realm, Utf16String::formatted("No data found for MIME type: {}", type)));
 

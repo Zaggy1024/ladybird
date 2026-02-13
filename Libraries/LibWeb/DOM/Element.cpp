@@ -1319,7 +1319,7 @@ FlyString Element::make_html_uppercased_qualified_name() const
 }
 
 // https://html.spec.whatwg.org/multipage/webappapis.html#queue-an-element-task
-HTML::TaskID Element::queue_an_element_task(HTML::Task::Source source, Function<void()> steps)
+HTML::TaskID Element::queue_an_element_task(HTML::Task::Source source, ESCAPING Function<void()> steps)
 {
     return queue_a_task(source, HTML::main_thread_event_loop(), document(), GC::create_function(heap(), move(steps)));
 }

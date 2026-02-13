@@ -55,7 +55,7 @@ void GuardedSubstitutionContexts::guard(SubstitutionContext& context)
 
 void GuardedSubstitutionContexts::unguard(SubstitutionContext const& context)
 {
-    [[maybe_unused]] auto const was_removed = m_contexts.remove_first_matching([context](auto const& other) {
+    [[maybe_unused]] auto const was_removed = m_contexts.remove_first_matching([&context](auto const& other) {
         return context == other;
     });
     VERIFY(was_removed);

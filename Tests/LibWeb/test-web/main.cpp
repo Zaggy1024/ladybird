@@ -656,7 +656,7 @@ static void run_dump_test(TestWebView& view, TestRunContext& context, Test& test
         view.on_test_complete({ test_index, TestResult::Timeout });
     });
 
-    auto handle_completed_test = [&context, test_index, url]() -> ErrorOr<TestResult> {
+    auto handle_completed_test = [&context, test_index, url = url]() -> ErrorOr<TestResult> {
         auto& test = context.tests[test_index];
         if (test.expectation_path.is_empty()) {
             if (test.mode != TestMode::Crash)
@@ -722,7 +722,7 @@ static void run_dump_test(TestWebView& view, TestRunContext& context, Test& test
     };
 
     if (test.mode == TestMode::Layout) {
-        view.on_load_finish = [&view, &context, test_index, url, on_test_complete = move(on_test_complete)](auto const& loaded_url) {
+        view.on_load_finish = [&view, &context, test_index, url = url, on_test_complete = move(on_test_complete)](auto const& loaded_url) {
             // We don't want subframe loads to trigger the test finish.
             if (!url.equals(loaded_url, URL::ExcludeFragment::Yes))
                 return;
@@ -769,7 +769,7 @@ static void run_dump_test(TestWebView& view, TestRunContext& context, Test& test
                 on_test_complete();
         };
 
-        view.on_load_finish = [&view, &context, test_index, on_test_complete, url](auto const& loaded_url) {
+        view.on_load_finish = [&view, &context, test_index, on_test_complete, url = url](auto const& loaded_url) {
             // We don't want subframe loads to trigger the test finish.
             if (!url.equals(loaded_url, URL::ExcludeFragment::Yes))
                 return;
@@ -804,7 +804,7 @@ static void run_dump_test(TestWebView& view, TestRunContext& context, Test& test
                 on_test_complete();
         };
     } else if (test.mode == TestMode::Crash) {
-        view.on_load_finish = [on_test_complete, url, &view, &context, test_index](auto const& loaded_url) {
+        view.on_load_finish = [on_test_complete, url = url, &view, &context, test_index](auto const& loaded_url) {
             // We don't want subframe loads to trigger the test finish.
             if (!url.equals(loaded_url, URL::ExcludeFragment::Yes))
                 return;
@@ -843,7 +843,7 @@ static void run_ref_test(TestWebView& view, TestRunContext& context, Test& test,
         view.on_test_complete({ test_index, TestResult::Timeout });
     });
 
-    auto handle_completed_test = [&view, &context, test_index, url]() -> ErrorOr<TestResult> {
+    auto handle_completed_test = [&view, &context, test_index, url = url]() -> ErrorOr<TestResult> {
         auto& test = context.tests[test_index];
         VERIFY(test.ref_test_expectation_type.has_value());
         auto should_match = test.ref_test_expectation_type == RefTestExpectationType::Match;

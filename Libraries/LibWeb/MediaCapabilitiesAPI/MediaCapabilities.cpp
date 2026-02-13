@@ -156,7 +156,7 @@ GC::Ref<WebIDL::Promise> MediaCapabilities::decoding_info(MediaDecodingConfigura
 
     // 4. Run the following steps in parallel:
     auto& vm = this->vm();
-    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(realm.heap(), [&vm, &realm, p, configuration]() mutable {
+    Platform::EventLoopPlugin::the().deferred_invoke(GC::create_function(realm.heap(), [&vm, &realm, p, configuration = configuration]() mutable {
         HTML::TemporaryExecutionContext context(realm);
         // 1. Run the Create a MediaCapabilitiesDecodingInfo algorithm with configuration.
         auto result = create_a_media_capabilities_decoding_info(configuration).to_object(realm);

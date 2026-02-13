@@ -584,7 +584,7 @@ void initialize_main_thread_vm(AgentType type)
             perform_fetch = fetch_context.perform_fetch;
         }
 
-        auto on_single_fetch_complete = HTML::create_on_fetch_script_complete(module_map_realm->heap(), [referrer, module_map_realm, load_state, module_request, payload](GC::Ptr<HTML::Script> const& module_script) -> void {
+        auto on_single_fetch_complete = HTML::create_on_fetch_script_complete(module_map_realm->heap(), [referrer, module_map_realm, load_state, module_request = module_request, payload](GC::Ptr<HTML::Script> const& module_script) -> void {
             auto& realm = *module_map_realm;
             // onSingleFetchComplete given moduleScript is the following algorithm:
             // 1. Let completion be null.

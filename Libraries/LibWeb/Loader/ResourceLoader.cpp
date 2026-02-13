@@ -204,7 +204,7 @@ void ResourceLoader::handle_file_load_request(LoadRequest& request, FileHandler 
 
     auto const& url = request.url().value();
 
-    FileRequest file_request(url.file_path(), [this, request, on_file, on_error, url](ErrorOr<i32> file_or_error) mutable {
+    FileRequest file_request(url.file_path(), [this, request, on_file, on_error, url = url](ErrorOr<i32> file_or_error) mutable {
         --m_pending_loads;
         if (on_load_counter_change)
             on_load_counter_change();

@@ -2088,7 +2088,7 @@ void Document::set_hovered_node(GC::Ptr<Node> node)
 // https://html.spec.whatwg.org/multipage/dom.html#dom-document-getelementsbyname
 GC::Ref<NodeList> Document::get_elements_by_name(FlyString const& name)
 {
-    return LiveNodeList::create(realm(), *this, LiveNodeList::Scope::Descendants, [name](auto const& node) {
+    return LiveNodeList::create(realm(), *this, LiveNodeList::Scope::Descendants, [name = name](auto const& node) {
         if (!is<HTML::HTMLElement>(node))
             return false;
         return as<HTML::HTMLElement>(node).name() == name;
@@ -6106,7 +6106,7 @@ JS::Value Document::named_item_value(FlyString const& name) const
         return elements.first();
 
     // 4. Otherwise return an HTMLCollection rooted at the Document node, whose filter matches only named elements with the name name.
-    return HTMLCollection::create(*const_cast<Document*>(this), HTMLCollection::Scope::Descendants, [name](auto& element) {
+    return HTMLCollection::create(*const_cast<Document*>(this), HTMLCollection::Scope::Descendants, [name = name](auto& element) {
         return is_named_element_with_name(element, name);
     });
 }
