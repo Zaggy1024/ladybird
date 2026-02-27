@@ -89,6 +89,7 @@
     },
     "libjpeg-turbo",
     "libjxl",
+    "libyuv",
     {
       "name": "libpng",
       "features": [
@@ -292,6 +293,10 @@
     {
       "name": "libpng",
       "version": "1.6.50#0"
+    },
+    {
+      "name": "libyuv",
+      "version": "1916"
     },
     {
       "name": "libproxy",

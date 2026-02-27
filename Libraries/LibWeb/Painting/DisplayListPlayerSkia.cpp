@@ -143,7 +143,7 @@ void DisplayListPlayerSkia::draw_external_content(DrawExternalContent const& com
     auto bitmap = command.source->current_bitmap();
     if (!bitmap)
         return;
-    if (m_context && !bitmap->ensure_sk_image(*m_context))
+    if (!bitmap->ensure_sk_image(m_context.ptr()))
         return;
     auto dst_rect = to_skia_rect(command.dst_rect);
     SkRect src_rect = SkRect::MakeIWH(bitmap->width(), bitmap->height());
@@ -155,7 +155,7 @@ void DisplayListPlayerSkia::draw_external_content(DrawExternalContent const& com
 
 void DisplayListPlayerSkia::draw_scaled_immutable_bitmap(DrawScaledImmutableBitmap const& command)
 {
-    if (m_context && !command.bitmap->ensure_sk_image(*m_context))
+    if (!command.bitmap->ensure_sk_image(m_context.ptr()))
         return;
 
     auto dst_rect = to_skia_rect(command.dst_rect);
@@ -171,7 +171,7 @@ void DisplayListPlayerSkia::draw_scaled_immutable_bitmap(DrawScaledImmutableBitm
 
 void DisplayListPlayerSkia::draw_repeated_immutable_bitmap(DrawRepeatedImmutableBitmap const& command)
 {
-    if (m_context && !command.bitmap->ensure_sk_image(*m_context))
+    if (!command.bitmap->ensure_sk_image(m_context.ptr()))
         return;
 
     SkMatrix matrix;
