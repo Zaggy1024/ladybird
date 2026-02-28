@@ -6,6 +6,8 @@
  */
 
 #include <AK/JsonObject.h>
+#include <AK/LexicalPath.h>
+#include <LibCore/StandardPaths.h>
 #include <LibGfx/Cursor.h>
 #include <LibJS/Runtime/Date.h>
 #include <LibJS/Runtime/VM.h>
@@ -148,7 +150,9 @@ WebIDL::ExceptionOr<void> Internals::load_test_variants()
 
 void Internals::gc()
 {
+    dump_backtrace();
     vm().heap().collect_garbage();
+    dump_gc_graph();
 }
 
 WebIDL::ExceptionOr<String> Internals::set_time_zone(StringView time_zone)
@@ -495,7 +499,19 @@ String Internals::dump_stacking_context_tree()
 
 String Internals::dump_gc_graph()
 {
-    return Bindings::main_thread_vm().heap().dump_graph().serialized();
+    auto gc_graph_json = Bindings::main_thread_vm().heap().dump_graph().serialized();
+
+    LexicalPath path { Core::StandardPaths::tempfile_directory() };
+    path = path.append(MUST(AK::UnixDateTime::now().to_string("gc-graph-%Y-%m-%d-%H-%M-%S.js"sv)));
+
+    // Write as a .js file so gc-heap-explorer.html can load it via <script> tag (avoiding CORS issues with file:// URLs)
+    auto dump_file = MUST(Core::File::open(path.string(), Core::File::OpenMode::Write));
+    MUST(dump_file->write_until_depleted("var GC_GRAPH_DUMP = "sv.bytes()));
+    MUST(dump_file->write_until_depleted(gc_graph_json.bytes()));
+    MUST(dump_file->write_until_depleted(";\n"sv.bytes()));
+
+    dbgln("Wrote dump to {}", path);
+    return gc_graph_json;
 }
 
 GC::Ptr<DOM::ShadowRoot> Internals::get_shadow_root(GC::Ref<DOM::Element> element)

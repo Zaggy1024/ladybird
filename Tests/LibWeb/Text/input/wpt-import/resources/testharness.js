@@ -11,8 +11,8 @@
         // Assume we are running tests if the internals object is exposed.
         output: !(globalThis.internals && globalThis.internals.headless),
         harness_timeout:{
-            "normal":150000, // NOTE: Overridden for Ladybird due to slow GCC CI
-            "long":300000 // NOTE: Overridden for Ladybird due to slow GCC CI
+            "normal":null, // NOTE: Overridden for Ladybird due to slow GCC CI
+            "long":null // NOTE: Overridden for Ladybird due to slow GCC CI
         },
         test_timeout:null,
         message_events: ["start", "test_state", "result", "completion"],

@@ -6,6 +6,7 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include "AK/StdLibExtras.h"
 #include <LibJS/Runtime/Promise.h>
 #include <LibMedia/IncrementallyPopulatedStream.h>
 #include <LibMedia/PlaybackManager.h>
@@ -161,8 +162,10 @@ void HTMLMediaElement::removed_from(DOM::Node* old_parent, DOM::Node& old_root)
 
 void HTMLMediaElement::cancel_the_fetching_process()
 {
-    if (m_fetch_controller)
+    if (m_fetch_controller) {
+        dbgln("stop fetch {}", m_fetch_controller.ptr());
         m_fetch_controller->stop_fetch();
+    }
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#fatal-decode-error
@@ -1005,6 +1008,7 @@ void HTMLMediaElement::fetch_resource(URL::URL const& url_record, Function<void(
     auto fetch_data = make_ref_counted<FetchData>();
     fetch_data->url_record = url_record;
     fetch_data->stream = Media::IncrementallyPopulatedStream::create_empty();
+    dbgln("{}: stream for {}", fetch_data->stream.ptr(), fetch_data->url_record.to_string());
     fetch_data->stream->set_data_request_callback(GC::weak_callback(*this, [&fetch_data = *fetch_data](auto& self, u64 offset) {
         self.restart_fetch_at_offset(fetch_data, offset);
     }));
@@ -1106,8 +1110,11 @@ void HTMLMediaElement::fetch_resource(NonnullRefPtr<FetchData> const& fetch_data
         Fetch::Infrastructure::FetchAlgorithms::Input fetch_algorithms_input {};
 
         fetch_algorithms_input.process_response = [weak_self = GC::Weak(*this), byte_range = move(byte_range), fetch_data, fetch_generation](auto response) mutable {
-            if (!weak_self)
+            if (!weak_self) {
+                dbgln("{}: media element is dead on response for {}", fetch_data->stream.ptr(), fetch_data->url_record.to_string());
                 return;
+            }
+            dbgln("{}: response {}", fetch_data->stream.ptr(), fetch_data->url_record.to_string());
 
             // FIXME: If the response is CORS cross-origin, we must use its internal response to query any of its data. See:
             //        https://github.com/whatwg/html/issues/9355
@@ -1128,6 +1135,7 @@ void HTMLMediaElement::fetch_resource(NonnullRefPtr<FetchData> const& fetch_data
             // NOTE: We do this step before creating the updateMedia task so that we can invoke the failure callback.
             auto maybe_verify_response_failure = verify_response_or_get_failure_reason(response, byte_range, fetch_data);
             if (maybe_verify_response_failure.has_value()) {
+                dbgln("{}: verify response failure", fetch_data->stream.ptr());
                 fetch_data->failure_callback(maybe_verify_response_failure.value());
                 return;
             }
@@ -1186,6 +1194,7 @@ void HTMLMediaElement::fetch_resource(NonnullRefPtr<FetchData> const& fetch_data
         };
 
         m_fetch_controller = Fetch::Fetching::fetch(realm, request, Fetch::Infrastructure::FetchAlgorithms::create(vm, move(fetch_algorithms_input)));
+        dbgln("{}: fetch {} for {}", fetch_data->stream.ptr(), m_fetch_controller.ptr(), url_record.to_string());
         break;
     }
 
@@ -1213,6 +1222,7 @@ Optional<String> HTMLMediaElement::verify_response_or_get_failure_reason(GC::Ref
     // 1. If response is a network error, then return false.
     if (response->is_network_error()) {
         VERIFY(response->network_error_message().has_value());
+        dbgln("{}: network error: {}", fetch_data->stream.ptr(), response->network_error_message());
         return response->network_error_message();
     }
 
@@ -1546,6 +1556,7 @@ void HTMLMediaElement::set_up_playback_manager(NonnullRefPtr<FetchData> const& f
         self.set_decoder_error(MUST(String::from_utf8(error.description())));
     });
 
+    dbgln("{}: add source from {}", fetch_data->stream.ptr(), fetch_data->url_record.to_string());
     m_playback_manager->add_media_source(*fetch_data->stream);
 
     m_playback_manager->on_playback_state_change = GC::weak_callback(*this, [](auto& self) {
@@ -1556,6 +1567,7 @@ void HTMLMediaElement::set_up_playback_manager(NonnullRefPtr<FetchData> const& f
 // https://html.spec.whatwg.org/multipage/media.html#media-data-processing-steps-list
 void HTMLMediaElement::process_media_data(FetchingStatus fetching_status)
 {
+    dbgln("process_media_data({})", to_underlying(fetching_status));
     auto& realm = this->realm();
 
     // -> Once the entire media resource has been fetched (but potentially before any of it has been decoded)
@@ -1657,6 +1669,7 @@ void HTMLMediaElement::forget_media_resource_specific_tracks()
 // https://html.spec.whatwg.org/multipage/media.html#ready-states:media-element-3
 void HTMLMediaElement::set_ready_state(ReadyState ready_state)
 {
+    dbgln("readystate {} -> {}", to_underlying(m_ready_state), to_underlying(ready_state));
     ScopeGuard guard { [&] {
         m_ready_state = ready_state;
         upon_has_ended_playback_possibly_changed();

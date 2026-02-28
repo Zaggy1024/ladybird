@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<script>
+    asyncTest(done => {
+        {
+            let video = document.createElement("video");
+            video.src = "file:///nonexistent-media-file.webm";
+            video.addEventListener("error", () => {
+                println("error event fired");
+                done();
+            });
+        }
+
+        // Queue a task to GC after all pending tasks have run,
+        // so the element's only remaining references are weak ones.
+        setTimeout(() => {
+            internals.gc();
+        }, 0);
+    });
+</script>

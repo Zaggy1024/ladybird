@@ -33,9 +33,15 @@ NonnullRefPtr<IncrementallyPopulatedStream> IncrementallyPopulatedStream::create
     return create_from_data(buffer.bytes());
 }
 
-IncrementallyPopulatedStream::IncrementallyPopulatedStream() = default;
+IncrementallyPopulatedStream::IncrementallyPopulatedStream()
+{
+    dbgln("{}: new stream", this);
+}
 
-IncrementallyPopulatedStream::~IncrementallyPopulatedStream() = default;
+IncrementallyPopulatedStream::~IncrementallyPopulatedStream()
+{
+    dbgln("{}: destroy stream size {}, closed? {}", this, m_expected_size, m_closed);
+}
 
 void IncrementallyPopulatedStream::set_data_request_callback(DataRequestCallback callback)
 {
@@ -104,6 +110,7 @@ void IncrementallyPopulatedStream::add_chunk_at(u64 offset, ReadonlyBytes data)
 void IncrementallyPopulatedStream::close()
 {
     Threading::MutexLocker locker { m_mutex };
+    dbgln("{}: close() with size {}", this, m_last_chunk_end);
     m_expected_size = m_last_chunk_end;
     m_closed = true;
     m_state_changed.broadcast();
@@ -222,7 +229,9 @@ DecoderErrorOr<size_t> IncrementallyPopulatedStream::read_at(Cursor& cursor, siz
             break;
 
         cursor.m_blocked = true;
+        dbgln("{}: blocked, closed? {}", this, m_closed);
         m_state_changed.wait();
+        dbgln("{}: unblocked, closed? {}", this, m_closed);
         cursor.m_blocked = false;
     }
 
