@@ -531,27 +531,18 @@ NO_SANITIZE_ADDRESS void Heap::gather_conservative_roots(HashMap<Cell*, HeapRoot
             frame_boundaries.ensure_capacity(frame_starts.size());
             size_t raw_frame_index = 0;
             for (size_t i = 0; i < resolved.frames.size() && raw_frame_index < frame_starts.size(); ++i) {
-                auto const& frame = resolved.frames[i];
-                if (frame.is_inline)
+                auto const& sf = resolved.frames[i];
+
+                if (sf.is_inline) {
+                    out_stack_frames->append({ .label = format_frame_label(sf) });
                     continue;
+                }
 
                 auto frame_label_index = static_cast<u32>(out_stack_frames->size());
 
-                StringBuilder label;
-                if (!frame.symbol.empty()) {
-                    label.append(StringView(frame.symbol.c_str(), frame.symbol.length()));
-                    if (frame.line.has_value()) {
-                        auto filename = StringView { frame.filename.c_str(), frame.filename.length() };
-                        auto last_slash = filename.find_last('/');
-                        if (last_slash.has_value())
-                            filename = filename.substring_view(*last_slash + 1);
-                        label.appendff(" {}:{}", filename, frame.line.value());
-                    }
-                }
-
                 auto frame_start = frame_starts[raw_frame_index];
                 auto frame_end = frame_starts.get(raw_frame_index + 1).value_or(stack_top);
-                out_stack_frames->append({ .label = format_frame_label(frame), .size_bytes = frame_end - frame_start });
+                out_stack_frames->append({ .label = format_frame_label(sf), .size_bytes = frame_end - frame_start });
 
                 frame_boundaries.append({ frame_start, frame_label_index });
                 ++raw_frame_index;
