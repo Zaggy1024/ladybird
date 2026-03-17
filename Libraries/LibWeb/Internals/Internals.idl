@@ -68,6 +68,8 @@ interface Internals {
 
     readonly attribute boolean headless;
 
+    readonly attribute boolean layoutIsUpToDate;
+
     DOMString dumpDisplayList();
     DOMString dumpLayoutTree(Node node);
     DOMString dumpPaintableTree(Node node);

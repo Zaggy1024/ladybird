@@ -27,6 +27,7 @@
 #include <LibWeb/HTML/FormAssociatedElement.h>
 #include <LibWeb/HTML/HTMLElement.h>
 #include <LibWeb/HTML/Navigable.h>
+#include <LibWeb/HTML/TraversableNavigable.h>
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/Internals/InternalGamepad.h>
 #include <LibWeb/Internals/Internals.h>
@@ -444,6 +445,14 @@ void Internals::set_device_pixel_ratio(double ratio)
 bool Internals::headless()
 {
     return page().client().is_headless();
+}
+
+bool Internals::layout_is_up_to_date()
+{
+    auto document = page().top_level_traversable()->active_document();
+    if (!document)
+        return false;
+    return document->layout_is_up_to_date();
 }
 
 String Internals::dump_display_list()

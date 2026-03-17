@@ -87,6 +87,8 @@ public:
 
     bool headless();
 
+    bool layout_is_up_to_date();
+
     String dump_display_list();
     String dump_layout_tree(GC::Ref<DOM::Node>);
     String dump_paintable_tree(GC::Ref<DOM::Node>);
