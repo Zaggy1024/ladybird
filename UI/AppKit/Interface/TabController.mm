@@ -66,7 +66,6 @@ static NSString* const TOOLBAR_TAB_OVERVIEW_IDENTIFIER = @"ToolbarTabOverviewIde
 
     bool m_fullscreen_requested_for_web_content;
     bool m_fullscreen_exit_was_ui_initiated;
-    bool m_fullscreen_should_restore_tab_bar;
 }
 
 @property (nonatomic, assign) BOOL already_requested_close;
@@ -120,7 +119,6 @@ static NSString* const TOOLBAR_TAB_OVERVIEW_IDENTIFIER = @"ToolbarTabOverviewIde
         m_page_index = 0;
         m_fullscreen_requested_for_web_content = false;
         m_fullscreen_exit_was_ui_initiated = true;
-        m_fullscreen_should_restore_tab_bar = false;
 
         self.autocomplete = [[Autocomplete alloc] init:self withToolbarItem:self.location_toolbar_item];
         m_autocomplete = make<WebView::Autocomplete>();
@@ -147,7 +145,6 @@ static NSString* const TOOLBAR_TAB_OVERVIEW_IDENTIFIER = @"ToolbarTabOverviewIde
         m_page_index = page_index;
         m_fullscreen_requested_for_web_content = false;
         m_fullscreen_exit_was_ui_initiated = true;
-        m_fullscreen_should_restore_tab_bar = false;
     }
 
     return self;
@@ -493,14 +490,6 @@ static NSString* const TOOLBAR_TAB_OVERVIEW_IDENTIFIER = @"ToolbarTabOverviewIde
 
 - (void)windowWillEnterFullScreen:(NSNotification*)notification
 {
-    if (m_fullscreen_requested_for_web_content) {
-        [self.toolbar setVisible:NO];
-
-        m_fullscreen_should_restore_tab_bar = [[self.window tabGroup] isTabBarVisible];
-        if (m_fullscreen_should_restore_tab_bar) {
-            [self.window toggleTabBar:nil];
-        }
-    }
 }
 
 - (void)windowDidEnterFullScreen:(NSNotification*)notification
@@ -517,13 +506,7 @@ static NSString* const TOOLBAR_TAB_OVERVIEW_IDENTIFIER = @"ToolbarTabOverviewIde
 
 - (void)windowDidExitFullScreen:(NSNotification*)notification
 {
-    if (exchange(m_fullscreen_requested_for_web_content, false)) {
-        [self.toolbar setVisible:YES];
-
-        if (m_fullscreen_should_restore_tab_bar && ![[self.window tabGroup] isTabBarVisible]) {
-            [self.window toggleTabBar:nil];
-        }
-    }
+    exchange(m_fullscreen_requested_for_web_content, false);
 
     [[[self tab] web_view] handleExitedFullScreen];
 }
