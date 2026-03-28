@@ -10,6 +10,7 @@
 #include <LibWeb/CSS/PropertyID.h>
 #include <LibWeb/DOM/DOMTokenList.h>
 #include <LibWeb/DOM/Document.h>
+#include <LibWeb/DOM/ElementFactory.h>
 #include <LibWeb/DOM/Event.h>
 #include <LibWeb/DOM/IDLEventListener.h>
 #include <LibWeb/DOM/ShadowRoot.h>
@@ -17,6 +18,7 @@
 #include <LibWeb/HTML/EventNames.h>
 #include <LibWeb/HTML/HTMLMediaElement.h>
 #include <LibWeb/HTML/HTMLVideoElement.h>
+#include <LibWeb/HTML/TimeRanges.h>
 #include <LibWeb/HTML/MediaControls.h>
 #include <LibWeb/HTML/Window.h>
 #include <LibWeb/UIEvents/EventNames.h>
@@ -485,6 +487,7 @@ void MediaControls::update_play_pause_icon()
 void MediaControls::update_timeline()
 {
     VERIFY(m_media_element);
+    VERIFY(m_dom->timeline_track);
     VERIFY(m_dom->timeline_fill);
 
     auto format_percent = [](double value) {
@@ -499,6 +502,40 @@ void MediaControls::update_timeline()
     if (m_last_timeline_progress != progress) {
         MUST(m_dom->timeline_fill->style_for_bindings()->set_property(CSS::PropertyID::Width, format_percent(progress)));
         m_last_timeline_progress = progress;
+    }
+
+    auto buffered = m_media_element->buffered();
+    auto range_count = buffered->length();
+    if (isnan(duration) || duration <= 0.0)
+        range_count = 0;
+
+    while (m_buffered_ranges.size() > range_count) {
+        auto range_div = m_buffered_ranges.take_last();
+        range_div.element->remove();
+    }
+
+    while (m_buffered_ranges.size() < range_count) {
+        auto range_div = MUST(DOM::create_element(m_media_element->document(), HTML::TagNames::div, Namespace::HTML));
+        MUST(range_div->class_list()->add(Vector { "timeline-buffered"_string }));
+        m_dom->timeline_track->insert_before(range_div, nullptr);
+        m_buffered_ranges.empend(*range_div);
+    }
+
+    for (size_t i = 0; i < range_count; i++) {
+        auto& range = m_buffered_ranges[i];
+        auto range_start = MUST(buffered->start(i));
+        auto range_duration = MUST(buffered->end(i)) - range_start;
+        auto left = range_start / duration;
+        auto width = range_duration / duration;
+        if (left == range.left && width == range.width)
+            continue;
+        range.left = left;
+        range.width = width;
+
+        auto style = range.element->style_for_bindings();
+        MUST(style->set_property(CSS::PropertyID::Left, format_percent(left)));
+        MUST(style->set_property(CSS::PropertyID::Width, format_percent(width)));
+        MUST(style->set_property(CSS::PropertyID::Display, "block"_string));
     }
 }
 
