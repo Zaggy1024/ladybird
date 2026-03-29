@@ -644,7 +644,7 @@ DecoderErrorOr<void> Reader::for_each_track_of_type(TrackEntry::TrackType type, 
     });
 }
 
-DecoderErrorOr<NonnullRefPtr<TrackEntry>> Reader::track_for_track_number(u64 track_number)
+DecoderErrorOr<NonnullRefPtr<TrackEntry const>> Reader::track_for_track_number(u64 track_number) const
 {
     auto optional_track_entry = m_tracks.get(track_number);
     if (!optional_track_entry.has_value())
@@ -652,7 +652,7 @@ DecoderErrorOr<NonnullRefPtr<TrackEntry>> Reader::track_for_track_number(u64 tra
     return *optional_track_entry.release_value();
 }
 
-DecoderErrorOr<size_t> Reader::track_count()
+DecoderErrorOr<size_t> Reader::track_count() const
 {
     return m_tracks.size();
 }
@@ -864,7 +864,7 @@ DecoderErrorOr<Block> Reader::parse_block_group(Streamer& streamer, AK::Duration
     return block;
 }
 
-DecoderErrorOr<SampleIterator> Reader::create_sample_iterator(NonnullRefPtr<MediaStreamCursor> const& cursor, Optional<u64> track_number)
+DecoderErrorOr<SampleIterator> Reader::create_sample_iterator(NonnullRefPtr<MediaStreamCursor> const& cursor, Optional<u64> track_number) const
 {
     dbgln_if(MATROSKA_DEBUG, "Creating sample iterator starting at {} relative to segment at {}", m_first_cluster_position, m_segment_contents_position);
     TrackBlockContexts track_contexts;
@@ -1004,7 +1004,7 @@ DecoderErrorOr<void> Reader::parse_cues(Streamer& streamer)
     return {};
 }
 
-DecoderErrorOr<void> Reader::seek_to_cue_for_timestamp(SampleIterator& iterator, AK::Duration const& timestamp, Vector<TrackCuePoint> const& cue_points, CuePointTarget target)
+DecoderErrorOr<void> Reader::seek_to_cue_for_timestamp(SampleIterator& iterator, AK::Duration const& timestamp, Vector<TrackCuePoint> const& cue_points, CuePointTarget target) const
 {
     // Take a guess at where in the cues the timestamp will be and correct from there.
     auto duration = m_segment_information.duration();
@@ -1081,12 +1081,12 @@ static DecoderErrorOr<void> search_clusters_for_keyframe_before_timestamp(Sample
     return {};
 }
 
-bool Reader::has_cues_for_track(u64 track_number)
+bool Reader::has_cues_for_track(u64 track_number) const
 {
     return m_cues.contains(track_number);
 }
 
-DecoderErrorOr<SampleIterator> Reader::seek_to_random_access_point(SampleIterator iterator, AK::Duration timestamp)
+DecoderErrorOr<SampleIterator> Reader::seek_to_random_access_point(SampleIterator iterator, AK::Duration timestamp) const
 {
     VERIFY(iterator.m_track_number.has_value());
     auto track_number = iterator.m_track_number.value();
@@ -1121,7 +1121,7 @@ DecoderErrorOr<SampleIterator> Reader::seek_to_random_access_point(SampleIterato
     return iterator;
 }
 
-Optional<Vector<TrackCuePoint> const&> Reader::cue_points_for_track(u64 track_number)
+Optional<Vector<TrackCuePoint> const&> Reader::cue_points_for_track(u64 track_number) const
 {
     return m_cues.get(track_number);
 }
