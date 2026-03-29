@@ -629,3 +629,58 @@ TEST_CASE(buffered_time_ranges_repeated_query)
     EXPECT_EQ(ranges_1, ranges_2);
     EXPECT_EQ(ranges_2, ranges_3);
 }
+
+TEST_CASE(buffered_time_ranges_evicted_start)
+{
+    // Simulate data eviction by calling buffered_time_ranges with the full file first,
+    // then with a byte range whose start is later (as if the beginning was evicted).
+    auto file_data = load_test_file_data("./big_buck_bunny_5s.webm"sv);
+    auto stream = Media::IncrementallyPopulatedStream::create_from_buffer(file_data);
+    auto reader = MUST(Media::Matroska::Reader::from_stream(stream->create_cursor()));
+    auto cursor = stream->create_cursor();
+
+    // Get buffered ranges for the full file.
+    Vector<Media::MediaStream::ByteRange> byte_ranges;
+    byte_ranges.append({ 0, file_data.size() });
+    auto time_ranges = reader.buffered_time_ranges(cursor, byte_ranges);
+    EXPECT_EQ(time_ranges.size(), 1u);
+    EXPECT_EQ(time_ranges[0].start, AK::Duration::zero());
+    EXPECT_EQ(time_ranges[0].end, AK::Duration::from_nanoseconds(4999666666));
+
+    // Simulate eviction of the first four clusters.
+    byte_ranges[0] = { 31913, file_data.size() };
+    time_ranges = reader.buffered_time_ranges(cursor, byte_ranges);
+    EXPECT_EQ(time_ranges.size(), 1u);
+    EXPECT_EQ(time_ranges[0].start, AK::Duration::from_milliseconds(2000));
+    EXPECT_EQ(time_ranges[0].end, AK::Duration::from_nanoseconds(4999666666));
+}
+
+TEST_CASE(buffered_time_ranges_evicted_start_appended_end)
+{
+    // Simulate data eviction by calling buffered_time_ranges with an early portion of the file,
+    // then again with a new range that does not overlap.
+    auto file_data = load_test_file_data("./big_buck_bunny_5s.webm"sv);
+    auto stream = Media::IncrementallyPopulatedStream::create_from_buffer(file_data);
+    auto reader = MUST(Media::Matroska::Reader::from_stream(stream->create_cursor()));
+    auto cursor = stream->create_cursor();
+
+    // Get buffered ranges with only the first two clusters available.
+    Vector<Media::MediaStream::ByteRange> byte_ranges;
+    byte_ranges.append({ 0, 21628 });
+    auto time_ranges = reader.buffered_time_ranges(cursor, byte_ranges);
+    EXPECT_EQ(time_ranges.size(), 1u);
+    EXPECT_EQ(time_ranges[0].start, AK::Duration::zero());
+    EXPECT_EQ(time_ranges[0].end, AK::Duration::from_nanoseconds(1499666666));
+
+    // Get buffered ranges with only clusters 8 and 9 available.
+    byte_ranges[0] = { 91687, 113303 };
+    time_ranges = reader.buffered_time_ranges(cursor, byte_ranges);
+    EXPECT_EQ(time_ranges.size(), 1u);
+    EXPECT_EQ(time_ranges[0].start, AK::Duration::from_milliseconds(4000));
+    EXPECT_EQ(time_ranges[0].end, AK::Duration::from_nanoseconds(4999666666));
+
+    // Get buffered ranges with a byte range containing no clusters.
+    byte_ranges[0] = { 113303, file_data.size() };
+    time_ranges = reader.buffered_time_ranges(cursor, byte_ranges);
+    EXPECT_EQ(time_ranges.size(), 0u);
+}

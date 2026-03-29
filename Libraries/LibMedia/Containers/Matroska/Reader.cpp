@@ -1159,6 +1159,13 @@ Optional<Vector<TrackCuePoint> const&> Reader::cue_points_for_track(u64 track_nu
 
 TimeRanges Reader::buffered_time_ranges(NonnullRefPtr<MediaStreamCursor> const& cursor, Vector<MediaStream::ByteRange> const& byte_ranges) const
 {
+    auto create_iterator = [&](size_t position) -> Optional<SampleIterator> {
+        auto iterator = create_sample_iterator_at_byte_position(cursor, position);
+        if (iterator.is_error())
+            return {};
+        return iterator.release_value();
+    };
+
     size_t cached_range_index = 0;
     size_t byte_range_index = 0;
     while (byte_range_index < byte_ranges.size()) {
@@ -1173,16 +1180,10 @@ TimeRanges Reader::buffered_time_ranges(NonnullRefPtr<MediaStreamCursor> const& 
         // If the current byte range precedes the current cached range, insert a new one for that byte range.
         // Restart the loop with the same cached range.
         if (!cached_range.has_value() || byte_range.start < cached_range->start) {
-            auto iterator = [&] -> Optional<SampleIterator> {
-                auto iterator = create_sample_iterator_at_byte_position(cursor, byte_range.start);
-                if (iterator.is_error())
-                    return {};
-                return iterator.release_value();
-            }();
             auto new_cached_range = BufferedRange {
                 .start = byte_range.start,
                 .end = byte_range.end,
-                .iterator = move(iterator),
+                .iterator = create_iterator(byte_range.start),
             };
             m_buffered_ranges.insert(cached_range_index, move(new_cached_range));
             cached_range_index++;
@@ -1222,7 +1223,36 @@ TimeRanges Reader::buffered_time_ranges(NonnullRefPtr<MediaStreamCursor> const& 
             }
         }
 
-        VERIFY_NOT_REACHED();
+        // The range has shifted forward. We'll need to re-read from the new start position.
+        auto new_iterator = create_iterator(byte_range.start);
+
+        // If the cached range's last read is still contained in the new byte range, we can keep using its end time.
+        // Just grab the first frame at the new byte range's start and update the cached range's start from it.
+        auto& cached_iterator = cached_range->iterator;
+        if (cached_iterator.has_value() && new_iterator.has_value()) {
+            auto last_cached_position = cached_iterator->position();
+            if (byte_range.start <= last_cached_position && last_cached_position <= byte_range.end) {
+                auto first_block = new_iterator->next_block();
+
+                if (!first_block.is_error() && first_block.value().timestamp().has_value()) {
+                    cached_range->start = byte_range.start;
+                    cached_range->end = byte_range.end;
+                    cached_range->time_start = first_block.value().timestamp().value();
+                    cached_range_index++;
+                    byte_range_index++;
+                    continue;
+                }
+            }
+        }
+
+        // Otherwise, we have to reset everything for this range.
+        *cached_range = {
+            .start = byte_range.start,
+            .end = byte_range.end,
+            .iterator = move(new_iterator),
+        };
+        cached_range_index++;
+        byte_range_index++;
     }
 
     // Remove any leftover ranges. We should be left with only the exact ranges provided to us.
@@ -1258,7 +1288,7 @@ TimeRanges Reader::buffered_time_ranges(NonnullRefPtr<MediaStreamCursor> const& 
         }
 
         if (cached_range.time_start.has_value())
-            result.add_range(cached_range.time_start.value(), cached_range.time_end);
+            result.add_range(max(AK::Duration::zero(), cached_range.time_start.value()), cached_range.time_end);
     }
 
     return result;
