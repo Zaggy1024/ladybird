@@ -62,22 +62,19 @@ void IncrementallyPopulatedStream::add_chunk_at(u64 offset, ReadonlyBytes data)
 
     auto previous_chunk_iter = m_chunks.find_largest_not_above_iterator(offset);
 
-    // Add a new chunk to the collection if there are none.
+    // Add a new chunk to the collection if there's no overlapping previous chunk.
     if (previous_chunk_iter.is_end() || previous_chunk_iter->end() < offset) {
         DataChunk new_chunk { offset, MUST(ByteBuffer::copy(data)) };
         m_chunks.insert(offset, move(new_chunk));
-        m_state_changed.broadcast();
+        previous_chunk_iter = m_chunks.find_largest_not_above_iterator(offset);
+    } else if (previous_chunk_iter->end() >= new_chunk_end) {
+        // The chunk is fully covered by the existing chunk, skip until after it.
+        begin_new_request_while_locked(previous_chunk_iter->end());
         return;
     }
 
     auto& chunk = *previous_chunk_iter;
     auto& buffer = chunk.data();
-
-    if (chunk.size() >= new_chunk_end) {
-        // The chunk is fully covered by the existing chunk, skip until after it.
-        begin_new_request_while_locked(chunk.end());
-        return;
-    }
 
     // Expand the existing chunk to contain this new data.
     buffer.resize(new_chunk_end - chunk.offset());
