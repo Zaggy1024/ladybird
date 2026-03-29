@@ -5,6 +5,8 @@ include(ffmpeg)
 set(SOURCES
     Containers/Matroska/MatroskaDemuxer.cpp
     Containers/Matroska/Reader.cpp
+    Containers/Matroska/SampleIterator.cpp
+    Containers/Matroska/Streamer.cpp
     IncrementallyPopulatedStream.cpp
     PlaybackManager.cpp
     PlaybackStates/PausedStateHandler.cpp
