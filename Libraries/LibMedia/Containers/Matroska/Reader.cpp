@@ -866,7 +866,38 @@ DecoderErrorOr<Block> Reader::parse_block_group(Streamer& streamer, AK::Duration
 
 DecoderErrorOr<SampleIterator> Reader::create_sample_iterator(NonnullRefPtr<MediaStreamCursor> const& cursor, Optional<u64> track_number) const
 {
-    dbgln_if(MATROSKA_DEBUG, "Creating sample iterator starting at {} relative to segment at {}", m_first_cluster_position, m_segment_contents_position);
+    return create_sample_iterator_at_byte_position(cursor, 0, track_number);
+}
+
+DecoderErrorOr<SampleIterator> Reader::create_sample_iterator_at_byte_position(NonnullRefPtr<MediaStreamCursor> const& cursor, size_t position, Optional<u64> track_number) const
+{
+    Optional<size_t> cluster_position;
+
+    if (position > 0) {
+        cluster_position = {};
+        if (m_first_cluster_position >= position)
+            cluster_position = m_first_cluster_position;
+
+        for (auto const& [track_number_with_cues, cue_points] : m_cues) {
+            if (track_number.has_value() && track_number != track_number_with_cues)
+                continue;
+            for (auto const& cue_point : cue_points) {
+                auto cue_cluster_position = m_segment_contents_position + cue_point.position.cluster_position();
+                if (cue_cluster_position >= position) {
+                    if (!cluster_position.has_value() || cue_cluster_position < cluster_position.value())
+                        cluster_position = cue_cluster_position;
+                    break;
+                }
+            }
+        }
+
+        if (!cluster_position.has_value())
+            return DecoderError::format(DecoderErrorCategory::EndOfStream, "Could not find a Cluster element after {}", position);
+    } else {
+        cluster_position = m_first_cluster_position;
+    }
+
+    dbgln_if(MATROSKA_DEBUG, "Creating sample iterator starting at {} relative to segment at {}", cluster_position, m_segment_contents_position);
     TrackBlockContexts track_contexts;
     if (track_number.has_value()) {
         auto track = TRY(track_for_track_number(track_number.value()));
@@ -875,7 +906,7 @@ DecoderErrorOr<SampleIterator> Reader::create_sample_iterator(NonnullRefPtr<Medi
         for (auto const& [number, track_entry] : m_tracks)
             track_contexts.set(number, TrackBlockContext::from_track_entry(*track_entry));
     }
-    return SampleIterator(cursor, track_number, move(track_contexts), m_segment_information.timestamp_scale(), m_segment_contents_position, m_first_cluster_position);
+    return SampleIterator(cursor, track_number, move(track_contexts), m_segment_information.timestamp_scale(), m_segment_contents_position, cluster_position.value());
 }
 
 static DecoderErrorOr<CueTrackPosition> parse_cue_track_position(Streamer& streamer)
@@ -1124,6 +1155,113 @@ DecoderErrorOr<SampleIterator> Reader::seek_to_random_access_point(SampleIterato
 Optional<Vector<TrackCuePoint> const&> Reader::cue_points_for_track(u64 track_number) const
 {
     return m_cues.get(track_number);
+}
+
+TimeRanges Reader::buffered_time_ranges(NonnullRefPtr<MediaStreamCursor> const& cursor, Vector<MediaStream::ByteRange> const& byte_ranges) const
+{
+    size_t cached_range_index = 0;
+    size_t byte_range_index = 0;
+    while (byte_range_index < byte_ranges.size()) {
+        auto cached_range = m_buffered_ranges.get(cached_range_index);
+        auto const& byte_range = byte_ranges[byte_range_index];
+        VERIFY(byte_range.start < byte_range.end);
+
+        auto previous_byte_range = byte_ranges.get(byte_range_index - 1);
+        if (previous_byte_range.has_value())
+            VERIFY(previous_byte_range->end < byte_range.start);
+
+        // If the current byte range precedes the current cached range, insert a new one for that byte range.
+        // Restart the loop with the same cached range.
+        if (!cached_range.has_value() || byte_range.start < cached_range->start) {
+            auto iterator = [&] -> Optional<SampleIterator> {
+                auto iterator = create_sample_iterator_at_byte_position(cursor, byte_range.start);
+                if (iterator.is_error())
+                    return {};
+                return iterator.release_value();
+            }();
+            auto new_cached_range = BufferedRange {
+                .start = byte_range.start,
+                .end = byte_range.end,
+                .iterator = move(iterator),
+            };
+            m_buffered_ranges.insert(cached_range_index, move(new_cached_range));
+            cached_range_index++;
+            byte_range_index++;
+            continue;
+        }
+
+        VERIFY(cached_range.has_value());
+
+        // If the current range is an exact match to the byte range, we can just update the end byte and advance.
+        if (byte_range.start == cached_range->start) {
+            cached_range->end = byte_range.end;
+            cached_range_index++;
+            byte_range_index++;
+            continue;
+        }
+
+        auto previous_cached_range = m_buffered_ranges.get(cached_range_index - 1);
+        if (previous_cached_range.has_value()) {
+            VERIFY(previous_cached_range->start < cached_range->start);
+
+            // If the current cached range is entirely encompassed by the previous one, then remove that range. We'll
+            // need to rescan its contents.
+            if (previous_cached_range->end >= cached_range->end) {
+                m_buffered_ranges.remove(cached_range_index);
+                continue;
+            }
+
+            // If the current cached range is connected to the previous one now, extend the previous one so that it
+            // begins scanning at the current range's end, and remove the current one.
+            if (byte_range.start == previous_cached_range->start && byte_range.end >= cached_range->end) {
+                previous_cached_range->end = byte_range.end;
+                previous_cached_range->time_end = cached_range->time_end;
+                previous_cached_range->iterator = move(cached_range->iterator);
+                m_buffered_ranges.remove(cached_range_index);
+                continue;
+            }
+        }
+
+        VERIFY_NOT_REACHED();
+    }
+
+    // Remove any leftover ranges. We should be left with only the exact ranges provided to us.
+    m_buffered_ranges.remove(cached_range_index, m_buffered_ranges.size() - cached_range_index);
+
+    // All previously known buffered ranges are now matched up or discarded. Iterate the blocks to update the ranges'
+    // end times and append the ranges.
+    VERIFY(m_buffered_ranges.size() == byte_ranges.size());
+    TimeRanges result;
+
+    for (size_t i = 0; i < byte_ranges.size(); i++) {
+        auto& cached_range = m_buffered_ranges[i];
+        auto const& byte_range = byte_ranges[i];
+        VERIFY(cached_range.start == byte_range.start);
+        VERIFY(cached_range.end == byte_range.end);
+
+        if (cached_range.iterator.has_value() && cached_range.iterator->position() < cached_range.end) {
+            auto& iterator = cached_range.iterator;
+
+            while (iterator->position() < byte_range.end) {
+                auto block_or_error = iterator->next_block();
+                if (block_or_error.is_error())
+                    break;
+                auto block = block_or_error.release_value();
+                if (block.timestamp().has_value() && block.duration().has_value()) {
+                    if (!cached_range.time_start.has_value())
+                        cached_range.time_start = block.timestamp().value();
+
+                    auto block_end = block.timestamp().value() + block.duration().value();
+                    cached_range.time_end = block_end;
+                }
+            }
+        }
+
+        if (cached_range.time_start.has_value())
+            result.add_range(cached_range.time_start.value(), cached_range.time_end);
+    }
+
+    return result;
 }
 
 }
