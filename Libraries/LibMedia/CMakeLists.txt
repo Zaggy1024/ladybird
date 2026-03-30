@@ -4,6 +4,7 @@ include(ffmpeg)
 
 set(SOURCES
     Containers/ConstantBitrateContainerNavigator.cpp
+    Containers/FLACNavigator.cpp
     Containers/IndexedContainerNavigator.cpp
     Containers/Matroska/MatroskaDemuxer.cpp
     Containers/Matroska/Reader.cpp
