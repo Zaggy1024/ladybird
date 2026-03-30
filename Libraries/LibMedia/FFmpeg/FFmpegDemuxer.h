@@ -11,11 +11,13 @@
 #include <AK/Forward.h>
 #include <AK/HashMap.h>
 #include <AK/NonnullOwnPtr.h>
+#include <AK/OwnPtr.h>
 #include <LibMedia/CodecID.h>
 #include <LibMedia/Demuxer.h>
 #include <LibMedia/Export.h>
 #include <LibMedia/FFmpeg/FFmpegForward.h>
 #include <LibMedia/FFmpeg/FFmpegIOContext.h>
+#include <LibMedia/Forward.h>
 
 namespace Media::FFmpeg {
 
@@ -76,12 +78,15 @@ private:
 
     FFmpegDemuxer(NonnullRefPtr<MediaStream> const&);
 
+    static OwnPtr<ContainerNavigator> create_container_navigator(AVFormatContext&);
+
     StreamInfo const& get_track_info(Track const&) const;
     TrackContext& get_track_context(Track const&);
 
     NonnullRefPtr<MediaStream> m_stream;
     AK::Duration m_total_duration;
     Vector<StreamInfo> m_stream_info;
+    OwnPtr<ContainerNavigator> m_container_navigator;
     Array<int, to_underlying(TrackType::Unknown)> m_preferred_track_for_type;
 
     HashMap<Track, NonnullOwnPtr<TrackContext>> m_track_contexts;

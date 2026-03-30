@@ -14,6 +14,7 @@ class AudioDataProvider;
 class AudioDecoder;
 class AudioMixingSink;
 class AudioSink;
+class ContainerNavigator;
 class DecoderError;
 class Demuxer;
 class DisplayingVideoSink;

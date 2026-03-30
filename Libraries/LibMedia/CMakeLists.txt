@@ -3,6 +3,8 @@ include(audio)
 include(ffmpeg)
 
 set(SOURCES
+    Containers/ConstantBitrateContainerNavigator.cpp
+    Containers/IndexedContainerNavigator.cpp
     Containers/Matroska/MatroskaDemuxer.cpp
     Containers/Matroska/Reader.cpp
     Containers/Matroska/SampleIterator.cpp
