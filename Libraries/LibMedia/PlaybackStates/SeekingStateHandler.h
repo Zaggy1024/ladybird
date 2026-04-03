@@ -118,7 +118,7 @@ private:
             return 0;
         size_t count = 0;
         for (auto const& audio_track_data : manager.m_audio_track_datas) {
-            if (manager.m_audio_sink->provider(audio_track_data.track) == nullptr)
+            if (!audio_track_data.enabled)
                 continue;
             count++;
         }
@@ -140,7 +140,7 @@ private:
         }
 
         for (auto const& audio_track_data : seek_data.manager->m_audio_track_datas) {
-            if (seek_data.manager->m_audio_sink->provider(audio_track_data.track) == nullptr)
+            if (!audio_track_data.enabled)
                 continue;
             audio_track_data.provider->seek(seek_data.chosen_timestamp, [seek_data = NonnullRefPtr(seek_data)]() {
                 seek_data->audio_seeks_completed++;
@@ -183,6 +183,8 @@ private:
                     begin_audio_seeks(seek_data);
             });
         }
+
+        possibly_complete_seek(seek_data);
     }
 
     AK::Duration m_target_timestamp;
