@@ -1711,9 +1711,6 @@ void HTMLMediaElement::on_metadata_parsed()
     // 6. Set the readyState attribute to HAVE_METADATA.
     set_ready_state(ReadyState::HaveMetadata);
 
-    // AD-HOC: If we've already got buffered data, we need to upgrade the readyState further than HAVE_METADATA.
-    update_ready_state();
-
     // 7. Let jumped be false.
     [[maybe_unused]] auto jumped = false;
 
@@ -1745,6 +1742,9 @@ void HTMLMediaElement::on_metadata_parsed()
             return IterationDecision::Break;
         });
     }
+
+    // AD-HOC: If we've already got buffered data, we need to upgrade the readyState further than HAVE_METADATA.
+    update_ready_state();
 }
 
 // https://html.spec.whatwg.org/multipage/media.html#media-data-processing-steps-list
