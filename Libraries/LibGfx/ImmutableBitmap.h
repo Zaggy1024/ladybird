@@ -57,7 +57,7 @@ public:
     ~ImmutableBitmap();
 
     bool is_yuv_backed() const;
-    bool ensure_sk_image(SkiaBackendContext&) const;
+    bool ensure_sk_image(RefPtr<SkiaBackendContext> const&) const;
 
     int width() const;
     int height() const;
