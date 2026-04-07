@@ -167,23 +167,6 @@ DecoderErrorOr<NonnullOwnPtr<VideoFrame>> FFmpegVideoDecoder::get_decoded_frame(
 
         cicp.adopt_specified_values(container_cicp);
 
-        // BT.470 M, B/G, BT.601, BT.709 and BT.2020 have a similar transfer function to sRGB, so other applications
-        // (Chromium, VLC) forgo transfer characteristics conversion. We will emulate that behavior by
-        // handling those as sRGB instead, which causes no transfer function change in the output,
-        // unless display color management is later implemented.
-        switch (cicp.transfer_characteristics()) {
-        case TransferCharacteristics::BT470BG:
-        case TransferCharacteristics::BT470M:
-        case TransferCharacteristics::BT601:
-        case TransferCharacteristics::BT709:
-        case TransferCharacteristics::BT2020BitDepth10:
-        case TransferCharacteristics::BT2020BitDepth12:
-            cicp.set_transfer_characteristics(TransferCharacteristics::SRGB);
-            break;
-        default:
-            break;
-        }
-
         size_t bit_depth = [&] {
             switch (m_frame->format) {
             case AV_PIX_FMT_YUV420P:
