@@ -54,6 +54,10 @@ public:
     static NonnullRefPtr<ImmutableBitmap> create_snapshot_from_painting_surface(NonnullRefPtr<PaintingSurface> const&);
     static ErrorOr<NonnullRefPtr<ImmutableBitmap>> create_from_yuv(NonnullOwnPtr<YUVData>);
 
+#ifdef AK_OS_MACOS
+    static ErrorOr<NonnullRefPtr<ImmutableBitmap>> create_from_cv_pixel_buffer(void* cv_pixel_buffer_ref, ColorSpace);
+#endif
+
     ~ImmutableBitmap();
 
     bool ensure_sk_image(SkiaBackendContext&) const;

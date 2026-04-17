@@ -8,6 +8,9 @@
 #include <LibGfx/ImmutableBitmap.h>
 #include <LibMedia/Demuxer.h>
 #include <LibMedia/FFmpeg/FFmpegVideoDecoder.h>
+#ifdef AK_OS_MACOS
+#    include <LibMedia/VideoToolbox/VideoToolboxVideoDecoder.h>
+#endif
 #include <LibMedia/Providers/MediaTimeProvider.h>
 #include <LibMedia/Sinks/VideoSink.h>
 #include <LibMedia/VideoDecoder.h>
@@ -110,6 +113,13 @@ DecoderErrorOr<void> VideoDataProvider::ThreadData::create_decoder()
 {
     auto codec_id = TRY(m_demuxer->get_codec_id_for_track(m_track));
     auto codec_initialization_data = TRY(m_demuxer->get_codec_initialization_data_for_track(m_track));
+#ifdef AK_OS_MACOS
+    auto vt_result = VideoToolbox::VideoToolboxVideoDecoder::try_create(codec_id, codec_initialization_data);
+    if (!vt_result.is_error()) {
+        m_decoder = vt_result.release_value();
+        return {};
+    }
+#endif
     m_decoder = TRY(FFmpeg::FFmpegVideoDecoder::try_create(codec_id, codec_initialization_data));
     return {};
 }
@@ -339,6 +349,11 @@ bool VideoDataProvider::ThreadData::handle_seek()
     AK::Duration timestamp;
     SeekMode mode { SeekMode::Accurate };
 
+    // Lookahead buffer preserved across outer-loop restarts. Only reset when the decoder is
+    // flushed (demuxer actually repositioned), since otherwise the held frame is still the
+    // valid pre-target candidate for the same ongoing seek.
+    OwnPtr<CodedFrame> held;
+
     while (true) {
         {
             auto locker = take_lock();
@@ -360,8 +375,10 @@ bool VideoDataProvider::ThreadData::handle_seek()
         }
         auto demuxer_seek_result = demuxer_seek_result_or_error.value_or(DemuxerSeekResult::MovedPosition);
 
-        if (demuxer_seek_result == DemuxerSeekResult::MovedPosition)
+        if (demuxer_seek_result == DemuxerSeekResult::MovedPosition) {
             m_decoder->flush();
+            held = nullptr;
+        }
 
         auto is_desired_coded_frame = [mode, timestamp](CodedFrame const& frame) {
             if (mode == SeekMode::Accurate)
@@ -371,12 +388,6 @@ bool VideoDataProvider::ThreadData::handle_seek()
             if (mode == SeekMode::FastAfter)
                 return frame.is_keyframe() && frame.timestamp() > timestamp;
             VERIFY_NOT_REACHED();
-        };
-
-        auto is_desired_decoded_frame = [mode, timestamp](VideoFrame const& frame) {
-            if (mode == SeekMode::Accurate)
-                return frame.timestamp() > timestamp;
-            return true;
         };
 
         auto resolved_time = [mode, timestamp](VideoFrame const& frame) {
@@ -391,80 +402,129 @@ bool VideoDataProvider::ThreadData::handle_seek()
 
         auto new_seek_id = m_seek_id.load();
         auto found_desired_keyframe = false;
-        OwnPtr<VideoFrame> last_frame;
+        auto const& cicp = m_track.video_data().cicp;
+
+        // Helper: once we've submitted output frames to the decoder, drain them and queue.
+        // The last two outputs (if both exist) are queued as last_frame + target.
+        auto drain_outputs_and_resolve = [&]() -> bool {
+            OwnPtr<VideoFrame> last_frame;
+            OwnPtr<VideoFrame> target;
+            while (true) {
+                auto frame_result = m_decoder->take_next_output();
+                if (frame_result.is_error()) {
+                    if (frame_result.error().category() == DecoderErrorCategory::NeedsMoreInput)
+                        break;
+                    handle_error(frame_result.release_error());
+                    return true;
+                }
+                last_frame = move(target);
+                target = frame_result.release_value();
+            }
+            if (!target)
+                return false;
+
+            auto target_ref = target.release_nonnull();
+            auto target_time = resolved_time(*target_ref);
+            auto locker = take_lock();
+            m_queue.clear();
+            if (last_frame != nullptr)
+                queue_frame(last_frame.release_nonnull());
+            queue_frame(target_ref);
+            resolve_seek(seek_id, target_time);
+            return true;
+        };
 
         while (new_seek_id == seek_id) {
             auto coded_frame_result = m_demuxer->get_next_sample_for_track(m_track);
             if (coded_frame_result.is_error()) {
                 if (coded_frame_result.error().category() == DecoderErrorCategory::EndOfStream) {
                     if (mode == SeekMode::FastAfter) {
-                        // If we're fast seeking after the provided timestamp and reach the end of the stream, that means we have
-                        // nothing to display. Restart the seek as an accurate seek.
                         auto locker = take_lock();
                         seek_id = ++m_seek_id;
                         m_seek_mode = SeekMode::Accurate;
                         continue;
                     }
 
-                    m_decoder->signal_end_of_stream();
-                } else {
-                    handle_error(coded_frame_result.release_error());
-                    return true;
-                }
-            } else {
-                auto coded_frame = coded_frame_result.release_value();
-                dispatch_frame_end_time(coded_frame);
-
-                if (!found_desired_keyframe)
-                    found_desired_keyframe = is_desired_coded_frame(coded_frame);
-
-                if (!found_desired_keyframe)
-                    continue;
-
-                auto decode_result = m_decoder->receive_coded_data(coded_frame.timestamp(), coded_frame.duration(), coded_frame.data());
-                if (decode_result.is_error()) {
-                    handle_error(decode_result.release_error());
-                    return true;
-                }
-            }
-
-            while (new_seek_id == seek_id) {
-                auto frame_result = m_decoder->get_decoded_frame(m_track.video_data().cicp);
-                if (frame_result.is_error()) {
-                    if (frame_result.error().category() == DecoderErrorCategory::EndOfStream) {
-                        auto locker = take_lock();
-                        if (last_frame != nullptr)
-                            queue_frame(last_frame.release_nonnull());
-
-                        resolve_seek(seek_id, timestamp);
-                        return true;
+                    // Submit any held frame for output and drain.
+                    if (held) {
+                        auto result = m_decoder->decode_for_output(held->timestamp(), held->duration(), held->data(), cicp);
+                        if (result.is_error()) {
+                            handle_error(result.release_error());
+                            return true;
+                        }
+                        held = nullptr;
                     }
+                    m_decoder->signal_end_of_stream();
+                    if (drain_outputs_and_resolve())
+                        return true;
 
-                    if (frame_result.error().category() == DecoderErrorCategory::NeedsMoreInput)
-                        break;
-
-                    handle_error(frame_result.release_error());
-                    return true;
-                }
-
-                auto current_frame = frame_result.release_value();
-                if (is_desired_decoded_frame(*current_frame)) {
                     auto locker = take_lock();
-                    m_queue.clear();
+                    resolve_seek(seek_id, timestamp);
+                    return true;
+                }
+                handle_error(coded_frame_result.release_error());
+                return true;
+            }
 
-                    if (last_frame != nullptr)
-                        queue_frame(last_frame.release_nonnull());
+            auto coded_frame = coded_frame_result.release_value();
+            dispatch_frame_end_time(coded_frame);
 
-                    queue_frame(current_frame);
+            if (!found_desired_keyframe)
+                found_desired_keyframe = is_desired_coded_frame(coded_frame);
 
-                    resolve_seek(seek_id, resolved_time(*current_frame));
+            if (!found_desired_keyframe)
+                continue;
+
+            // Fast modes: the first desired coded frame IS the target. No pre-target lookahead needed.
+            if (mode != SeekMode::Accurate) {
+                auto result = m_decoder->decode_for_output(coded_frame.timestamp(), coded_frame.duration(), coded_frame.data(), cicp);
+                if (result.is_error()) {
+                    handle_error(result.release_error());
+                    return true;
+                }
+                if (drain_outputs_and_resolve())
+                    return true;
+                new_seek_id = m_seek_id;
+                continue;
+            }
+
+            if (!held) {
+                held = make<CodedFrame>(move(coded_frame));
+                new_seek_id = m_seek_id;
+                continue;
+            }
+
+            // Accurate mode: we have `held` + `coded_frame`. Decide based on `coded_frame`'s timestamp.
+            bool held_is_pre_target = coded_frame.timestamp() > timestamp;
+
+            if (held_is_pre_target) {
+                auto result = m_decoder->decode_for_output(held->timestamp(), held->duration(), held->data(), cicp);
+                if (result.is_error()) {
+                    handle_error(result.release_error());
+                    return true;
+                }
+                held = nullptr;
+
+                result = m_decoder->decode_for_output(coded_frame.timestamp(), coded_frame.duration(), coded_frame.data(), cicp);
+                if (result.is_error()) {
+                    handle_error(result.release_error());
                     return true;
                 }
 
-                last_frame = move(current_frame);
-
+                if (drain_outputs_and_resolve())
+                    return true;
                 new_seek_id = m_seek_id;
+                continue;
             }
+
+            auto result = m_decoder->decode_for_reference(held->timestamp(), held->duration(), held->data());
+            if (result.is_error()) {
+                handle_error(result.release_error());
+                return true;
+            }
+            held = make<CodedFrame>(move(coded_frame));
+
+            new_seek_id = m_seek_id;
         }
     }
 }
@@ -511,7 +571,7 @@ void VideoDataProvider::ThreadData::push_data_and_decode_some_frames()
         auto coded_frame = sample_result.release_value();
         dispatch_frame_end_time(coded_frame);
 
-        auto decode_result = m_decoder->receive_coded_data(coded_frame.timestamp(), coded_frame.duration(), coded_frame.data());
+        auto decode_result = m_decoder->decode_for_output(coded_frame.timestamp(), coded_frame.duration(), coded_frame.data(), m_track.video_data().cicp);
         if (decode_result.is_error()) {
             set_error_and_wait_for_seek(decode_result.release_error());
             return;
@@ -519,7 +579,7 @@ void VideoDataProvider::ThreadData::push_data_and_decode_some_frames()
     }
 
     while (true) {
-        auto frame_result = m_decoder->get_decoded_frame(m_track.video_data().cicp);
+        auto frame_result = m_decoder->take_next_output();
         if (frame_result.is_error()) {
             if (frame_result.error().category() == DecoderErrorCategory::NeedsMoreInput)
                 break;

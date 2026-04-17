@@ -158,6 +158,7 @@ endif()
 if (APPLE)
     target_link_libraries(LibCore PUBLIC "-framework Metal")
     target_link_libraries(LibCore PUBLIC "-framework Accelerate")
+    target_link_libraries(LibGfx PRIVATE "-framework CoreVideo")
 endif()
 
 if (HAS_VULKAN)

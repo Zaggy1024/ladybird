@@ -15,15 +15,28 @@
 
 namespace Media {
 
+struct FrameMetadata {
+    AK::Duration timestamp;
+    AK::Duration duration;
+};
+
 class VideoDecoder {
 public:
     virtual ~VideoDecoder() { }
 
-    virtual DecoderErrorOr<void> receive_coded_data(AK::Duration timestamp, AK::Duration duration, ReadonlyBytes coded_data) = 0;
-    DecoderErrorOr<void> receive_coded_data(AK::Duration timestamp, AK::Duration duration, ByteBuffer const& coded_data) { return receive_coded_data(timestamp, duration, coded_data.span()); }
-    virtual void signal_end_of_stream() = 0;
-    virtual DecoderErrorOr<NonnullOwnPtr<VideoFrame>> get_decoded_frame(CodingIndependentCodePoints const& container_cicp) = 0;
+    // Submit a coded frame for reference-state-only decoding. Any decoded frames are discarded.
+    // Used by the seeking loop to advance the reference state through intermediate P-frames.
+    virtual DecoderErrorOr<void> decode_for_reference(AK::Duration timestamp, AK::Duration duration, ReadonlyBytes coded_data) = 0;
 
+    // Submit a coded frame that will produce output. The decoded frame(s) are queued internally
+    // and can be retrieved via take_next_output(). A single coded frame may produce multiple
+    // outputs (e.g. VP9 superframes).
+    virtual DecoderErrorOr<void> decode_for_output(AK::Duration timestamp, AK::Duration duration, ReadonlyBytes coded_data, CodingIndependentCodePoints const& container_cicp) = 0;
+
+    // Pop the next queued output frame. Returns NeedsMoreInput when the queue is empty.
+    virtual DecoderErrorOr<NonnullOwnPtr<VideoFrame>> take_next_output() = 0;
+
+    virtual void signal_end_of_stream() = 0;
     virtual void flush() = 0;
 };
 

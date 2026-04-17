@@ -23,6 +23,14 @@ set(SOURCES
 ladybird_lib(LibMedia media EXPLICIT_SYMBOL_EXPORT)
 target_link_libraries(LibMedia PRIVATE LibCore LibCrypto LibIPC LibGfx LibThreading LibUnicode)
 
+if (APPLE)
+    find_library(COREVIDEO CoreVideo REQUIRED)
+    find_library(COREMEDIA CoreMedia REQUIRED)
+    find_library(VIDEOTOOLBOX VideoToolbox REQUIRED)
+    target_link_libraries(LibMedia PRIVATE ${COREVIDEO} ${COREMEDIA} ${VIDEOTOOLBOX})
+    target_sources(LibMedia PRIVATE VideoToolbox/VideoToolboxVideoDecoder.mm)
+endif()
+
 target_sources(LibMedia PRIVATE
         FFmpeg/FFmpegAudioConverter.cpp
         FFmpeg/FFmpegAudioDecoder.cpp

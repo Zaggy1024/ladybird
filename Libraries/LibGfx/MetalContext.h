@@ -32,6 +32,7 @@ public:
     virtual void const* queue() const = 0;
 
     virtual OwnPtr<MetalTexture> create_texture_from_iosurface(Core::IOSurfaceHandle const&) = 0;
+    virtual OwnPtr<MetalTexture> create_texture_from_iosurface_plane(void* iosurface_ref, size_t plane, size_t width, size_t height, bool two_channel) = 0;
 
     virtual ~MetalContext() { }
 };

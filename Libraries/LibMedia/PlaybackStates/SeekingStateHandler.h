@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <AK/Format.h>
 #include <AK/HashTable.h>
 #include <AK/Time.h>
 #include <LibMedia/PlaybackManager.h>
@@ -43,6 +44,8 @@ public:
 
     virtual void seek(AK::Duration timestamp, SeekMode mode) override
     {
+        if (m_target_timestamp == timestamp)
+            return;
         m_target_timestamp = timestamp;
         m_mode = mode;
         begin_seek();
@@ -109,6 +112,8 @@ private:
             video_track_data.display->resume_updates();
         }
 
+        auto end = MonotonicTime::now();
+        dbgln("Seek to {} took {}", m_chosen_timestamp, end - m_start_time);
         resume();
     }
 
@@ -174,6 +179,7 @@ private:
 
     void begin_seek()
     {
+        m_start_time = MonotonicTime::now();
         m_chosen_timestamp = AK::Duration::zero();
         m_audio_seeks_started = false;
         m_video_seeks_pending.clear();
@@ -190,6 +196,7 @@ private:
         }
     }
 
+    MonotonicTime m_start_time { MonotonicTime::now_coarse() };
     AK::Duration m_target_timestamp;
     SeekMode m_mode { SeekMode::Accurate };
     AK::Duration m_chosen_timestamp { AK::Duration::zero() };

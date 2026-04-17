@@ -56,6 +56,22 @@ public:
         return make<MetalTextureImpl>(texture);
     }
 
+    OwnPtr<MetalTexture> create_texture_from_iosurface_plane(void* iosurface_ref, size_t plane, size_t width, size_t height, bool two_channel) override
+    {
+        auto* const descriptor = [[MTLTextureDescriptor alloc] init];
+        descriptor.pixelFormat = two_channel ? MTLPixelFormatRG8Unorm : MTLPixelFormatR8Unorm;
+        descriptor.width = width;
+        descriptor.height = height;
+        descriptor.storageMode = MTLStorageModeShared;
+        descriptor.usage = MTLTextureUsageShaderRead;
+
+        id<MTLTexture> texture = [m_device newTextureWithDescriptor:descriptor iosurface:(IOSurfaceRef)iosurface_ref plane:plane];
+        [descriptor release];
+        if (!texture)
+            return {};
+        return make<MetalTextureImpl>(texture);
+    }
+
     virtual ~MetalContextImpl() override
     {
         [m_queue release];

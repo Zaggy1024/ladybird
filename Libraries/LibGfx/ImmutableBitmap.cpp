@@ -17,9 +17,16 @@
 #include <core/SkColorSpace.h>
 #include <core/SkImage.h>
 #include <core/SkSurface.h>
+#include <core/SkYUVAInfo.h>
 #include <core/SkYUVAPixmaps.h>
 #include <gpu/ganesh/GrDirectContext.h>
+#include <gpu/ganesh/GrYUVABackendTextures.h>
 #include <gpu/ganesh/SkImageGanesh.h>
+
+#ifdef AK_OS_MACOS
+#    include <CoreVideo/CVPixelBuffer.h>
+#    include <gpu/ganesh/mtl/GrMtlBackendSurface.h>
+#endif
 
 namespace Gfx {
 
@@ -237,6 +244,78 @@ ErrorOr<NonnullRefPtr<ImmutableBitmap>> ImmutableBitmap::create_from_yuv(Nonnull
     };
     return adopt_ref(*new ImmutableBitmap(make<ImmutableBitmapImpl>(move(impl))));
 }
+
+#ifdef AK_OS_MACOS
+ErrorOr<NonnullRefPtr<ImmutableBitmap>> ImmutableBitmap::create_from_cv_pixel_buffer(void* cv_pixel_buffer_ref, ColorSpace color_space)
+{
+    auto context = SkiaBackendContext::the();
+    if (!context || !context->sk_context())
+        return Error::from_string_literal("GPU context required for zero-copy video frame import");
+
+    auto* pixel_buffer = static_cast<CVPixelBufferRef>(cv_pixel_buffer_ref);
+    auto* io_surface = CVPixelBufferGetIOSurface(pixel_buffer);
+    if (!io_surface)
+        return Error::from_string_literal("CVPixelBuffer has no IOSurface");
+
+    // Retain the CVPixelBuffer so VideoToolbox doesn't recycle it while we hold a reference
+    // to its IOSurface. Released in the SkImage's TextureReleaseProc below.
+    CVPixelBufferRetain(pixel_buffer);
+
+    auto& metal_context = context->metal_context();
+
+    auto y_width = CVPixelBufferGetWidthOfPlane(pixel_buffer, 0);
+    auto y_height = CVPixelBufferGetHeightOfPlane(pixel_buffer, 0);
+    auto uv_width = CVPixelBufferGetWidthOfPlane(pixel_buffer, 1);
+    auto uv_height = CVPixelBufferGetHeightOfPlane(pixel_buffer, 1);
+
+    auto y_texture = metal_context.create_texture_from_iosurface_plane(io_surface, 0, y_width, y_height, false);
+    auto uv_texture = metal_context.create_texture_from_iosurface_plane(io_surface, 1, uv_width, uv_height, true);
+    if (!y_texture || !uv_texture) {
+        CVPixelBufferRelease(pixel_buffer);
+        return Error::from_string_literal("Failed to create Metal textures from video frame planes");
+    }
+
+    auto yuva_info = SkYUVAInfo(
+        SkISize::Make(y_width, y_height),
+        SkYUVAInfo::PlaneConfig::kY_UV,
+        SkYUVAInfo::Subsampling::k420,
+        kRec709_Limited_SkYUVColorSpace);
+
+    GrMtlTextureInfo y_mtl_info;
+    y_mtl_info.fTexture = sk_ret_cfp(y_texture->texture());
+    auto y_backend = GrBackendTextures::MakeMtl(y_width, y_height, skgpu::Mipmapped::kNo, y_mtl_info);
+
+    GrMtlTextureInfo uv_mtl_info;
+    uv_mtl_info.fTexture = sk_ret_cfp(uv_texture->texture());
+    auto uv_backend = GrBackendTextures::MakeMtl(uv_width, uv_height, skgpu::Mipmapped::kNo, uv_mtl_info);
+
+    GrBackendTexture textures[SkYUVAInfo::kMaxPlanes] = { y_backend, uv_backend, {}, {} };
+    GrYUVABackendTextures yuva_textures(yuva_info, textures, kTopLeft_GrSurfaceOrigin);
+
+    context->lock();
+    auto sk_image = SkImages::TextureFromYUVATextures(
+        context->sk_context(),
+        yuva_textures,
+        color_space.color_space<sk_sp<SkColorSpace>>(),
+        [](void* release_context) {
+            CVPixelBufferRelease(static_cast<CVPixelBufferRef>(release_context));
+        },
+        pixel_buffer);
+    context->unlock();
+
+    if (!sk_image)
+        return Error::from_string_literal("Failed to create SkImage from video frame textures");
+
+    ImmutableBitmapImpl impl {
+        .context = context,
+        .sk_image = move(sk_image),
+        .sk_bitmap = {},
+        .bitmap = nullptr,
+        .color_space = move(color_space),
+    };
+    return adopt_ref(*new ImmutableBitmap(make<ImmutableBitmapImpl>(move(impl))));
+}
+#endif
 
 bool ImmutableBitmap::ensure_sk_image(SkiaBackendContext& context) const
 {
