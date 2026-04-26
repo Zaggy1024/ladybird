@@ -12,6 +12,7 @@ set(SOURCES
     PlaybackStates/PausedStateHandler.cpp
     PlaybackStates/PlaybackStateHandler.cpp
     PlaybackStates/ResumingStateHandler.cpp
+    Processors/AudioMixer.cpp
     Providers/AudioDataProvider.cpp
     Providers/GenericTimeProvider.cpp
     Providers/VideoDataProvider.cpp
