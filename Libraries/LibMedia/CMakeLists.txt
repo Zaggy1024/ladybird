@@ -6,6 +6,7 @@ set(SOURCES
     Audio/AudioDevices.cpp
     Containers/Matroska/MatroskaDemuxer.cpp
     Containers/Matroska/Reader.cpp
+    GenericTimeProvider.cpp
     IncrementallyPopulatedStream.cpp
     PlaybackManager.cpp
     PlaybackStates/StartingStateHandler.cpp
@@ -13,9 +14,8 @@ set(SOURCES
     PlaybackStates/PlaybackStateHandler.cpp
     PlaybackStates/ResumingStateHandler.cpp
     Processors/AudioMixer.cpp
-    Providers/AudioDataProvider.cpp
-    Providers/GenericTimeProvider.cpp
-    Providers/VideoDataProvider.cpp
+    Producers/DecodedAudioProducer.cpp
+    Producers/DecodedVideoProducer.cpp
     Sinks/AudioPlaybackSink.cpp
     Sinks/DisplayingVideoSink.cpp
     TimeRanges.cpp
