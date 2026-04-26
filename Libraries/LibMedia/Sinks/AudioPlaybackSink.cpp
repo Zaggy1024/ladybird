@@ -176,7 +176,12 @@ void AudioPlaybackSink::create_playback_stream()
             self->m_output_thread_data->m_playback_stream = stream;
         }
 
-        self->m_output_thread_data->m_mixer->set_sample_specification(stream->sample_specification());
+        if (auto result = self->m_output_thread_data->m_mixer->set_output_sample_specification(stream->sample_specification()); result.is_error()) {
+            if (self->on_audio_output_error)
+                self->on_audio_output_error(result.release_error());
+            return;
+        }
+        self->m_output_thread_data->m_mixer->start();
 
         if (self->m_temporary_time.has_value()) {
             self->seek(self->m_temporary_time.release_value());
