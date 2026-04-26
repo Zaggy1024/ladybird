@@ -117,18 +117,18 @@ DecoderErrorOr<void> PlaybackManager::prepare_playback_from_demuxer(WeakPlayback
 
         if (!self->m_audio_output_disabled && !self->m_audio_sink && !self->m_audio_tracks.is_empty()) {
             self->m_audio_mixer = MUST(AudioMixer::try_create());
-            self->m_audio_sink = MUST(AudioPlaybackSink::try_create(*self->m_audio_mixer));
+            self->m_audio_sink = MUST(AudioPlaybackSink::try_create(*self->m_audio_mixer,
+                [self](PipelineStatus status) {
+                    if (!self)
+                        return;
+                    self->on_audio_sink_state_changed(status);
+                }));
             self->set_time_provider(*self->m_audio_sink);
             self->m_audio_sink->on_audio_output_error = [self](Error&& error) {
                 if (!self)
                     return;
                 dbgln("Audio output initialization failed with error: {}", error);
                 self->disable_audio();
-            };
-            self->m_audio_mixer->on_start_buffering = [self](Track const& track) {
-                if (!self)
-                    return;
-                self->track_started_buffering(track);
             };
         }
 
@@ -216,14 +216,9 @@ WeakPlaybackManager PlaybackManager::weak()
 void PlaybackManager::set_up_producers()
 {
     for (auto const& video_track_data : m_video_track_datas) {
-        auto track = video_track_data.track;
-        video_track_data.producer->set_error_handler([self = weak(), track](DecoderError&& error) {
+        video_track_data.producer->set_error_handler([self = weak()](DecoderError&& error) {
             if (!self)
                 return;
-            if (error.category() == DecoderErrorCategory::EndOfStream) {
-                self->track_stopped_buffering(track);
-                return;
-            }
             self->dispatch_error(move(error));
         });
         video_track_data.producer->set_duration_change_handler([self = weak()](AK::Duration time) {
@@ -231,22 +226,12 @@ void PlaybackManager::set_up_producers()
                 return;
             self->check_for_duration_change(time);
         });
-        video_track_data.producer->set_frames_queue_is_full_handler([self = weak(), track] {
-            if (!self)
-                return;
-            self->track_stopped_buffering(track);
-        });
     }
 
     for (auto const& audio_track_data : m_audio_track_datas) {
-        auto track = audio_track_data.track;
-        audio_track_data.producer->set_error_handler([self = weak(), track](DecoderError&& error) {
+        audio_track_data.producer->set_error_handler([self = weak()](DecoderError&& error) {
             if (!self)
                 return;
-            if (error.category() == DecoderErrorCategory::EndOfStream) {
-                self->track_stopped_buffering(track);
-                return;
-            }
             self->dispatch_error(move(error));
         });
         audio_track_data.producer->set_duration_change_handler([self = weak()](AK::Duration time) {
@@ -254,24 +239,36 @@ void PlaybackManager::set_up_producers()
                 return;
             self->check_for_duration_change(time);
         });
-        audio_track_data.producer->set_queue_is_full_handler([self = weak(), track] {
-            if (!self)
-                return;
-            self->track_stopped_buffering(track);
-        });
     }
 }
 
-void PlaybackManager::track_started_buffering(Track const& track)
+void PlaybackManager::on_audio_sink_state_changed(PipelineStatus status)
 {
-    m_tracks_still_buffering.set(track);
-    m_handler->enter_buffering();
+    bool is_buffering = (status == PipelineStatus::Blocked);
+    if (is_buffering == m_audio_buffering)
+        return;
+    m_audio_buffering = is_buffering;
+    update_buffering_state();
 }
 
-void PlaybackManager::track_stopped_buffering(Track const& track)
+void PlaybackManager::on_video_sink_state_changed(Track const& track, PipelineStatus status)
 {
-    m_tracks_still_buffering.remove(track);
-    if (m_tracks_still_buffering.is_empty())
+    bool was_buffering = m_video_tracks_buffering.contains(track);
+    bool is_buffering = status == PipelineStatus::Blocked;
+    if (was_buffering == is_buffering)
+        return;
+    if (is_buffering)
+        m_video_tracks_buffering.set(track);
+    else
+        m_video_tracks_buffering.remove(track);
+    update_buffering_state();
+}
+
+void PlaybackManager::update_buffering_state()
+{
+    if (m_audio_buffering || !m_video_tracks_buffering.is_empty())
+        m_handler->enter_buffering();
+    else
         m_handler->exit_buffering();
 }
 
@@ -311,24 +308,24 @@ void PlaybackManager::set_time_provider(NonnullRefPtr<MediaTimeProvider> const& 
 
 void PlaybackManager::disable_audio()
 {
+    m_audio_buffering = false;
     m_audio_mixer = nullptr;
     m_audio_sink = nullptr;
     set_time_provider(make_ref_counted<GenericTimeProvider>());
-
-    for (auto const& track : m_audio_tracks)
-        track_stopped_buffering(track);
+    update_buffering_state();
 }
 
 NonnullRefPtr<DisplayingVideoSink> PlaybackManager::get_or_create_the_displaying_video_sink_for_track(Track const& track)
 {
     auto& track_data = get_video_data_for_track(track);
     if (track_data.display == nullptr) {
-        track_data.display = MUST(Media::DisplayingVideoSink::try_create(m_time_provider));
+        track_data.display = MUST(Media::DisplayingVideoSink::try_create(m_time_provider,
+            [self = weak(), track](PipelineStatus status) {
+                if (!self)
+                    return;
+                self->on_video_sink_state_changed(track, status);
+            }));
         track_data.display->set_producer(track, track_data.producer);
-        track_data.display->m_on_start_buffering = [this, track] {
-            track_started_buffering(track);
-        };
-        m_tracks_still_buffering.set(track);
         m_handler->on_track_enabled(track);
     }
 
@@ -341,9 +338,10 @@ void PlaybackManager::remove_the_displaying_video_sink_for_track(Track const& tr
     auto& track_data = get_video_data_for_track(track);
     VERIFY(track_data.display);
     track_data.display->set_producer(track, nullptr);
+    m_video_tracks_buffering.remove(track);
     track_data.display = nullptr;
-    track_stopped_buffering(track);
     m_handler->on_track_disabled(track);
+    update_buffering_state();
 }
 
 void PlaybackManager::enable_an_audio_track(Track const& track)
@@ -354,7 +352,6 @@ void PlaybackManager::enable_an_audio_track(Track const& track)
     if (m_audio_mixer) {
         VERIFY(m_audio_mixer->producer(track) == nullptr);
         m_audio_mixer->set_producer(track, track_data.producer);
-        m_tracks_still_buffering.set(track);
     }
     m_handler->on_track_enabled(track);
 }
@@ -368,7 +365,6 @@ void PlaybackManager::disable_an_audio_track(Track const& track)
         m_audio_mixer->set_producer(track, nullptr);
     }
     track_data.enabled = false;
-    track_stopped_buffering(track);
     m_handler->on_track_disabled(track);
 }
 
