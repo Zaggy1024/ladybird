@@ -13,24 +13,17 @@
 #include <LibMedia/Export.h>
 #include <LibMedia/Forward.h>
 #include <LibMedia/Providers/MediaTimeProvider.h>
-#include <LibMedia/Sinks/AudioSink.h>
-#include <LibThreading/Mutex.h>
 
 namespace Media {
 
-class MEDIA_API AudioPlaybackSink final : public AudioSink, public MediaTimeProvider {
-    class AudioMixingSinkWeakReference;
-
+class MEDIA_API AudioPlaybackSink final : public MediaTimeProvider {
 private:
     class OutputThreadData;
 
 public:
-    static ErrorOr<NonnullRefPtr<AudioPlaybackSink>> try_create();
-    AudioPlaybackSink(AudioMixingSinkWeakReference&, NonnullRefPtr<OutputThreadData>);
+    static ErrorOr<NonnullRefPtr<AudioPlaybackSink>> try_create(NonnullRefPtr<AudioMixer>);
+    AudioPlaybackSink(NonnullRefPtr<OutputThreadData>);
     virtual ~AudioPlaybackSink() override;
-
-    virtual void set_provider(Track const&, RefPtr<AudioDataProvider> const&) override;
-    virtual RefPtr<AudioDataProvider> provider(Track const&) const override;
 
     virtual AK::Duration current_time() const override;
     virtual void resume() override;
@@ -40,32 +33,11 @@ public:
     void set_volume(double);
 
     Function<void(Error&&)> on_audio_output_error;
-    Function<void(Track const&)> on_start_buffering;
 
 private:
-    class AudioMixingSinkWeakReference : public AtomicRefCounted<AudioMixingSinkWeakReference> {
-    public:
-        void emplace(AudioPlaybackSink& sink) { m_ptr = &sink; }
-        RefPtr<AudioPlaybackSink> take_strong() const
-        {
-            Threading::MutexLocker locker { m_mutex };
-            return m_ptr;
-        }
-        void revoke()
-        {
-            Threading::MutexLocker locker { m_mutex };
-            m_ptr = nullptr;
-        }
-
-    private:
-        mutable Threading::Mutex m_mutex;
-        AudioPlaybackSink* m_ptr { nullptr };
-    };
-
     void create_playback_stream();
 
     Core::EventLoop& m_main_thread_event_loop;
-    NonnullRefPtr<AudioMixingSinkWeakReference> m_weak_self;
 
     bool m_started_creating_playback_stream { false };
     bool m_playing { false };
