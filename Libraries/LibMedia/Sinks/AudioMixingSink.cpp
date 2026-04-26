@@ -295,9 +295,9 @@ void AudioMixingSink::pause()
                 return;
 
             auto new_stream_time = self->m_playback_stream->total_time_played();
-            auto new_media_time = AK::Duration::from_time_units(self->m_next_sample_to_write, 1, self->m_sample_specification.sample_rate());
 
-            self->m_main_thread_event_loop.deferred_invoke([self, new_stream_time, new_media_time]() {
+            self->m_main_thread_event_loop.deferred_invoke([self, new_stream_time]() {
+                auto new_media_time = self->m_last_media_time + (new_stream_time - self->m_last_stream_time);
                 self->m_last_stream_time = new_stream_time;
                 self->m_last_media_time = new_media_time;
             });
