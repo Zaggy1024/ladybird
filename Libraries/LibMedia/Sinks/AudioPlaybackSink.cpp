@@ -32,7 +32,7 @@ public:
     }
 
     ReadonlySpan<float> move_output_to_playback_stream_buffer(Span<float>);
-    void dispatch_state_if_changed(PipelineStatus);
+    void dispatch_state_if_changed(PipelineStatus, u32 seek_id);
 
     RefPtr<Audio::PlaybackStream> m_playback_stream;
     NonnullRefPtr<AudioMixer> m_mixer;
@@ -52,8 +52,7 @@ public:
     PipelineStatus m_last_dispatched_status { PipelineStatus::Pending };
     i64 m_last_real_data_end_in_samples { 0 };
 
-    Atomic<bool> m_pause_writing_audio_data { true };
-    bool m_audio_processor_is_waiting_in_output_loop { false };
+    Atomic<u32> m_seek_id { 0 };
     bool m_audio_processor_should_exit { false };
     bool m_waiting_for_upstream_data { false };
 };
@@ -75,14 +74,13 @@ ErrorOr<NonnullRefPtr<AudioPlaybackSink>> AudioPlaybackSink::try_create(NonnullR
         [output_thread_data]() -> intptr_t {
             while (true) {
                 size_t tail_index;
+                u32 seek_id_at_pull;
                 {
                     Threading::MutexLocker locker { output_thread_data->m_output_mutex };
-                    output_thread_data->m_audio_processor_is_waiting_in_output_loop = true;
-                    output_thread_data->m_output_condition.broadcast();
                     while (true) {
                         if (output_thread_data->m_audio_processor_should_exit)
                             break;
-                        if (output_thread_data->m_pause_writing_audio_data) {
+                        if (output_thread_data->m_seek_id == 0) {
                             output_thread_data->m_output_condition.wait();
                             continue;
                         }
@@ -98,10 +96,8 @@ ErrorOr<NonnullRefPtr<AudioPlaybackSink>> AudioPlaybackSink::try_create(NonnullR
                     }
                     if (output_thread_data->m_audio_processor_should_exit)
                         return 0;
-                    if (output_thread_data->m_pause_writing_audio_data)
-                        continue;
-                    output_thread_data->m_audio_processor_is_waiting_in_output_loop = false;
                     output_thread_data->m_waiting_for_upstream_data = true;
+                    seek_id_at_pull = output_thread_data->m_seek_id;
                     tail_index = output_thread_data->m_block_tail;
                 }
 
@@ -111,6 +107,8 @@ ErrorOr<NonnullRefPtr<AudioPlaybackSink>> AudioPlaybackSink::try_create(NonnullR
 
                 {
                     Threading::MutexLocker locker { output_thread_data->m_output_mutex };
+                    if (output_thread_data->m_seek_id != seek_id_at_pull)
+                        continue;
                     output_thread_data->m_last_pull_status = status;
                     if (!output_block.is_empty()) {
                         VERIFY(can_carry_data(status));
@@ -127,7 +125,7 @@ ErrorOr<NonnullRefPtr<AudioPlaybackSink>> AudioPlaybackSink::try_create(NonnullR
 
                         // We need to lie about the pipeline status here on EndOfStream to complete seeks, the real
                         // status will be dispatched later.
-                        output_thread_data->dispatch_state_if_changed(PipelineStatus::HaveData);
+                        output_thread_data->dispatch_state_if_changed(PipelineStatus::HaveData, seek_id_at_pull);
                     }
                 }
             }
@@ -156,15 +154,6 @@ AudioPlaybackSink::~AudioPlaybackSink()
     m_output_thread_data->m_output_condition.broadcast();
 }
 
-void AudioPlaybackSink::pause_audio_processor()
-{
-    Threading::MutexLocker locker { m_output_thread_data->m_output_mutex };
-    m_output_thread_data->m_pause_writing_audio_data.store(true);
-    m_output_thread_data->m_output_condition.broadcast();
-    while (!m_output_thread_data->m_audio_processor_is_waiting_in_output_loop)
-        m_output_thread_data->m_output_condition.wait();
-}
-
 void AudioPlaybackSink::create_playback_stream()
 {
     if (m_started_creating_playback_stream)
@@ -190,14 +179,13 @@ void AudioPlaybackSink::create_playback_stream()
         self->m_output_thread_data->m_mixer->set_sample_specification(stream->sample_specification());
 
         if (self->m_temporary_time.has_value()) {
-            self->set_time(self->m_temporary_time.release_value());
+            self->seek(self->m_temporary_time.release_value());
             return;
         }
 
         {
             Threading::MutexLocker locker { self->m_output_thread_data->m_output_mutex };
-            self->m_output_thread_data->m_waiting_for_upstream_data = false;
-            self->m_output_thread_data->m_pause_writing_audio_data = false;
+            self->m_output_thread_data->m_seek_id++;
             self->m_output_thread_data->m_output_condition.broadcast();
         }
 
@@ -259,24 +247,26 @@ ReadonlySpan<float> AudioPlaybackSink::OutputThreadData::move_output_to_playback
     if (samples_written < buffer.size()) {
         buffer = buffer.trim(samples_written);
         if (m_last_pull_status == PipelineStatus::Blocked || m_last_pull_status == PipelineStatus::Error)
-            dispatch_state_if_changed(m_last_pull_status);
+            dispatch_state_if_changed(m_last_pull_status, m_seek_id);
     }
 
     if (m_last_pull_status == PipelineStatus::EndOfStream && m_next_sample_to_play >= m_last_real_data_end_in_samples)
-        dispatch_state_if_changed(PipelineStatus::EndOfStream);
+        dispatch_state_if_changed(PipelineStatus::EndOfStream, m_seek_id);
 
     m_output_condition.broadcast();
     return buffer;
 }
 
-void AudioPlaybackSink::OutputThreadData::dispatch_state_if_changed(PipelineStatus status)
+void AudioPlaybackSink::OutputThreadData::dispatch_state_if_changed(PipelineStatus status, u32 seek_id)
 {
     if (status == m_last_dispatched_status)
         return;
     m_last_dispatched_status = status;
     if (auto event_loop = m_main_thread_event_loop->take(); event_loop.is_alive()) {
-        event_loop->deferred_invoke([self = NonnullRefPtr(*this), status] {
+        event_loop->deferred_invoke([self = NonnullRefPtr(*this), status, seek_id] {
             Threading::MutexLocker locker { self->m_output_mutex };
+            if (self->m_seek_id != seek_id)
+                return;
             if (self->m_on_state_changed)
                 self->m_on_state_changed(status);
         });
@@ -298,7 +288,7 @@ void AudioPlaybackSink::resume()
 {
     m_playing = true;
 
-    // If we're in the middle of the set_time() callbacks, let those take care of resuming.
+    // If we're in the middle of the seek() callbacks, let those take care of resuming.
     if (m_temporary_time.has_value())
         return;
 
@@ -336,22 +326,32 @@ void AudioPlaybackSink::pause()
         });
 }
 
-void AudioPlaybackSink::set_time(AK::Duration time)
+void AudioPlaybackSink::seek(AK::Duration time)
 {
-    // If we've already started setting the time, we only need to let the last callback complete
-    // and set the media time to the temporary time. The callbacks run synchronously, so this will
-    // never drop a set_time() call.
-    if (m_temporary_time.has_value()) {
-        m_temporary_time = time;
-        return;
-    }
-
+    bool already_draining_for_seek = m_temporary_time.has_value();
     m_temporary_time = time;
 
     if (!m_output_thread_data->m_playback_stream)
         return;
 
-    m_output_thread_data->m_pause_writing_audio_data = true;
+    auto seek_target_in_samples = time.to_time_units(1, m_output_thread_data->m_mixer->sample_specification().sample_rate());
+
+    {
+        Threading::MutexLocker locker { m_output_thread_data->m_output_mutex };
+        m_output_thread_data->m_seek_id++;
+        m_output_thread_data->m_block_head = 0;
+        m_output_thread_data->m_block_tail = 0;
+        m_output_thread_data->m_block_count = 0;
+        m_output_thread_data->m_next_sample_to_play = seek_target_in_samples;
+        m_output_thread_data->m_last_real_data_end_in_samples = seek_target_in_samples;
+        m_output_thread_data->m_last_pull_status = PipelineStatus::Pending;
+        m_output_thread_data->m_last_dispatched_status = PipelineStatus::Pending;
+        m_output_thread_data->m_waiting_for_upstream_data = true;
+        m_output_thread_data->m_mixer->seek(time);
+    }
+
+    if (already_draining_for_seek)
+        return;
 
     m_output_thread_data->m_playback_stream->drain_buffer_and_suspend()
         ->when_resolved([self = NonnullRefPtr(*this)]() {
@@ -361,21 +361,11 @@ void AudioPlaybackSink::set_time(AK::Duration time)
                 self->m_last_stream_time = new_stream_time;
                 self->m_last_media_time = self->m_temporary_time.release_value();
 
-                auto seek_target_in_samples = self->m_last_media_time.to_time_units(1, self->m_output_thread_data->m_mixer->sample_specification().sample_rate());
-
                 {
-                    Threading::MutexLocker output_locker { self->m_output_thread_data->m_output_mutex };
-                    while (!self->m_output_thread_data->m_audio_processor_is_waiting_in_output_loop)
-                        self->m_output_thread_data->m_output_condition.wait();
-                    self->m_output_thread_data->m_block_head = 0;
-                    self->m_output_thread_data->m_block_tail = 0;
-                    self->m_output_thread_data->m_block_count = 0;
-                    self->m_output_thread_data->m_next_sample_to_play = seek_target_in_samples;
-                    self->m_output_thread_data->m_last_real_data_end_in_samples = seek_target_in_samples;
-                    self->m_output_thread_data->m_mixer->reset_to_sample_position(seek_target_in_samples);
-                    self->m_output_thread_data->m_waiting_for_upstream_data = false;
-                    self->m_output_thread_data->m_pause_writing_audio_data = false;
-                    self->m_output_thread_data->m_output_condition.broadcast();
+                    Threading::MutexLocker locker { self->m_output_thread_data->m_output_mutex };
+                    auto pull_status = self->m_output_thread_data->m_last_pull_status;
+                    if (pull_status != PipelineStatus::Pending)
+                        self->m_output_thread_data->dispatch_state_if_changed(pull_status, self->m_output_thread_data->m_seek_id);
                 }
 
                 if (self->m_playing)
@@ -383,7 +373,7 @@ void AudioPlaybackSink::set_time(AK::Duration time)
             });
         })
         .when_rejected([](auto&& error) {
-            warnln("Unexpected error while setting time on AudioPlaybackSink: {}", error.string_literal());
+            warnln("Unexpected error while seeking AudioPlaybackSink: {}", error.string_literal());
         });
 }
 
