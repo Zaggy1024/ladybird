@@ -14,6 +14,7 @@
 #include <LibMedia/Producers/DecodedAudioProducer.h>
 #include <LibMedia/MediaTimeProvider.h>
 #include <LibMedia/Producers/DecodedVideoProducer.h>
+#include <LibMedia/PipelineStatus.h>
 #include <LibTest/TestCase.h>
 
 // The following tests attempt to reproduce a race condition in DecodedAudioProducer and DecodedVideoProducer
@@ -125,8 +126,10 @@ TEST_CASE(audio_producer_underspecified_5_1_channel_map)
     auto start_time = MonotonicTime::now_coarse();
 
     while (true) {
-        auto block = producer->retrieve_block();
-        if (!block.is_empty()) {
+        Media::AudioBlock block;
+        auto status = producer->pull(block);
+        if (status == Media::PipelineStatus::HaveData) {
+            EXPECT(!block.is_empty());
             EXPECT_EQ(block.channel_count(), 6);
             EXPECT_EQ(block.sample_specification().channel_map(), Audio::ChannelMap::surround_5_1());
             return;
