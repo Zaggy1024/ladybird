@@ -27,7 +27,7 @@ class MEDIA_API AudioMixer final : public AudioSink {
 public:
     static ErrorOr<NonnullRefPtr<AudioMixer>> try_create();
     AudioMixer();
-    virtual ~AudioMixer() override = default;
+    virtual ~AudioMixer() override;
 
     virtual void set_producer(Track const&, RefPtr<DecodedAudioProducer> const&) override;
     virtual RefPtr<DecodedAudioProducer> producer(Track const&) const override;
@@ -36,6 +36,8 @@ public:
     Audio::SampleSpecification sample_specification() const;
 
     PipelineStatus pull(AudioBlock& into);
+
+    void set_state_changed_handler(PipelineStateChangeHandler);
 
     // Combined: rewinds the mixer to a new sample position and discards any in-flight track blocks.
     // Must be invoked with no concurrent mix in progress.
@@ -54,10 +56,14 @@ private:
         PipelineStatus last_status { PipelineStatus::Pending };
     };
 
+    void dispatch_state(PipelineStatus);
+
     mutable Threading::Mutex m_mutex;
     Audio::SampleSpecification m_sample_specification;
     HashMap<Track, TrackMixingData> m_track_mixing_datas;
     Atomic<i64, MemoryOrder::memory_order_relaxed> m_next_sample_to_write { 0 };
+
+    PipelineStateChangeHandler m_state_changed_handler;
 };
 
 }
