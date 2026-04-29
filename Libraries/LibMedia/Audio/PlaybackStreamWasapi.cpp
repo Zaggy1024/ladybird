@@ -493,6 +493,11 @@ NonnullRefPtr<Core::ThreadedPromise<void>> PlaybackStreamWASAPI::discard_buffer_
     return promise;
 }
 
+void PlaybackStreamWASAPI::notify_data_available()
+{
+    SetEvent(m_state->buffer_event);
+}
+
 AK::Duration PlaybackStreamWASAPI::total_time_played() const
 {
     if (!s_com_uninitializer.initialized) [[unlikely]] {
