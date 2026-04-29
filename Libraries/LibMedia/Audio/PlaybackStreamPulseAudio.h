@@ -31,6 +31,8 @@ public:
 
     virtual NonnullRefPtr<Core::ThreadedPromise<void>> set_volume(double) override;
 
+    virtual void notify_data_available() override;
+
 private:
     // This struct is kept alive until the control thread exits to prevent a use-after-free without blocking on
     // the UI thread.

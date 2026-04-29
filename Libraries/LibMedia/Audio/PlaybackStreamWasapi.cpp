@@ -503,6 +503,11 @@ AK::Duration PlaybackStreamWASAPI::total_time_played() const
     return total_time_played_with_com_initialized(m_state);
 }
 
+void PlaybackStreamWASAPI::notify_data_available()
+{
+    SetEvent(m_state->buffer_event);
+}
+
 NonnullRefPtr<Core::ThreadedPromise<void>> PlaybackStreamWASAPI::set_volume(double volume)
 {
     HRESULT hr;

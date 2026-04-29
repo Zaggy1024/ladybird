@@ -32,6 +32,8 @@ public:
 
     virtual NonnullRefPtr<Core::ThreadedPromise<void>> set_volume(double) override;
 
+    virtual void notify_data_available() override;
+
 private:
     explicit PlaybackStreamAudioUnit(NonnullRefPtr<AudioState>);
     ~PlaybackStreamAudioUnit();
