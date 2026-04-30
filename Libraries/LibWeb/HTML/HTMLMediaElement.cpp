@@ -2562,9 +2562,14 @@ WebIDL::ExceptionOr<void> HTMLMediaElement::set_playback_rate(double new_value)
     // on setting, the user agent must follow these steps:
 
     // 1. If the given value is not supported by the user agent, then throw a "NotSupportedError" DOMException.
-    // FIXME: We need to support playback rates other than 1 for this to be even remotely useful.
-    if (new_value != 1.0)
-        return WebIDL::NotSupportedError::create(realm(), "Playback rates other than 1 are not supported."_utf16);
+    if (new_value <= 0.0)
+        return WebIDL::NotSupportedError::create(realm(), "Reverse playback is unsupported."_utf16);
+
+    // 2. Set playbackRate to the new value, and if the element is potentially playing, change the playback speed.
+    m_playback_rate = new_value;
+
+    if (m_playback_manager)
+        MUST(m_playback_manager->set_playback_rate(static_cast<float>(new_value)));
 
     // When the defaultPlaybackRate or playbackRate attributes change value (either by being set by script or by being changed directly by the user agent, e.g. in response to user
     // control), the user agent must queue a media element task given the media element to fire an event named ratechange at the media element.
@@ -2572,12 +2577,6 @@ WebIDL::ExceptionOr<void> HTMLMediaElement::set_playback_rate(double new_value)
         queue_a_media_element_task([this] {
             dispatch_event(DOM::Event::create(realm(), HTML::EventNames::ratechange));
         });
-    }
-
-    // 2. Set playbackRate to the new value, and if the element is potentially playing, change the playback speed.
-    m_playback_rate = new_value;
-    if (potentially_playing()) {
-        // FIXME: Do this once playback speeds other than 1 are supported.
     }
 
     return {};

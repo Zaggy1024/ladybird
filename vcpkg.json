@@ -1,5 +1,5 @@
 {
-  "builtin-baseline": "48cfe1e0e928341709d97fc3d2eff10ad6262c96",
+  "builtin-baseline": "ae9233132ece481f20511a19928e422c2e39141d",
   "dependencies": [
     {
       "name": "angle",
@@ -12,6 +12,7 @@
       "name": "angle",
       "platform": "linux | windows | android | bsd"
     },
+    "bungee",
     {
       "name": "cpptrace",
       "platform": "linux | windows | osx"
@@ -260,6 +261,10 @@
     {
       "name": "angle",
       "version": "chromium_7258#0"
+    },
+    {
+      "name": "bungee",
+      "version": "2.4.15"
     },
     {
       "name": "cpptrace",

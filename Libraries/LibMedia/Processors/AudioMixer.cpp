@@ -137,6 +137,14 @@ void AudioMixer::dispatch_state(PipelineStatus status)
         m_state_changed_handler(status);
 }
 
+ErrorOr<void> AudioMixer::set_stretch(float rate)
+{
+    Threading::MutexLocker locker { m_mutex };
+    for (auto& [input, input_data] : m_inputs)
+        TRY(input->set_stretch(rate));
+    return {};
+}
+
 PipelineStatus AudioMixer::pull(AudioBlock& into)
 {
     VERIFY(m_sample_specification.is_valid());

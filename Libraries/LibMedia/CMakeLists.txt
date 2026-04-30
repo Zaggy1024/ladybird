@@ -4,6 +4,7 @@ include(ffmpeg)
 
 set(SOURCES
     Audio/AudioDevices.cpp
+    Audio/BungeeTimeStretcher.cpp
     Containers/Matroska/MatroskaDemuxer.cpp
     Containers/Matroska/Reader.cpp
     GenericTimeProvider.cpp
@@ -14,6 +15,7 @@ set(SOURCES
     PlaybackStates/PlaybackStateHandler.cpp
     PlaybackStates/ResumingStateHandler.cpp
     Processors/AudioMixer.cpp
+    Processors/TimeStretchProcessor.cpp
     Producers/DecodedAudioProducer.cpp
     Producers/DecodedVideoProducer.cpp
     Sinks/AudioPlaybackSink.cpp
@@ -22,8 +24,10 @@ set(SOURCES
     VideoFrame.cpp
 )
 
+find_package(unofficial-bungee CONFIG REQUIRED)
+
 ladybird_lib(LibMedia media EXPLICIT_SYMBOL_EXPORT)
-target_link_libraries(LibMedia PRIVATE LibCore LibCrypto LibIPC LibGfx LibThreading LibUnicode)
+target_link_libraries(LibMedia PRIVATE LibCore LibCrypto LibIPC LibGfx LibThreading LibUnicode unofficial::bungee::bungee)
 
 target_sources(LibMedia PRIVATE
         FFmpeg/FFmpegAudioConverter.cpp

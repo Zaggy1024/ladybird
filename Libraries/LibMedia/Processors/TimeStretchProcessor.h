@@ -7,11 +7,12 @@
 #pragma once
 
 #include <AK/Atomic.h>
-#include <AK/HashMap.h>
+#include <AK/NonnullOwnPtr.h>
 #include <AK/NonnullRefPtr.h>
+#include <AK/OwnPtr.h>
 #include <AK/RefPtr.h>
-#include <LibMedia/Audio/Forward.h>
 #include <LibMedia/Audio/SampleSpecification.h>
+#include <LibMedia/Audio/TimeStretcher.h>
 #include <LibMedia/AudioBlock.h>
 #include <LibMedia/Export.h>
 #include <LibMedia/Forward.h>
@@ -22,11 +23,11 @@
 
 namespace Media {
 
-class MEDIA_API AudioMixer final : public AudioProcessor {
+class MEDIA_API TimeStretchProcessor final : public AudioProcessor {
 public:
-    static ErrorOr<NonnullRefPtr<AudioMixer>> try_create();
-    AudioMixer();
-    virtual ~AudioMixer() override;
+    static ErrorOr<NonnullRefPtr<TimeStretchProcessor>> try_create();
+    TimeStretchProcessor();
+    virtual ~TimeStretchProcessor() override = default;
 
     virtual ErrorOr<void> connect_input(NonnullRefPtr<AudioProducer> const&) override;
     virtual void disconnect_input(NonnullRefPtr<AudioProducer> const&) override;
@@ -34,33 +35,27 @@ public:
     virtual void seek(AK::Duration timestamp) override;
 
     virtual ErrorOr<void> set_output_sample_specification(Audio::SampleSpecification) override;
-    Audio::SampleSpecification sample_specification() const;
 
     virtual void start() override;
 
     virtual PipelineStatus pull(AudioBlock& into) override;
-
     virtual void set_state_changed_handler(PipelineStateChangeHandler) override;
 
     virtual ErrorOr<void> set_stretch(float rate) override;
 
 private:
-    struct InputMixingData {
-        AudioBlock current_block;
-        i64 next_frame { 0 };
-        PipelineStatus last_status { PipelineStatus::Pending };
-    };
-
-    void dispatch_state(PipelineStatus);
-    AK::Duration mix_head_timestamp() const;
-
-    void disconnect_input_while_locked(NonnullRefPtr<AudioProducer> const&);
+    void ensure_stretcher_while_locked();
 
     mutable Threading::Mutex m_mutex;
     Audio::SampleSpecification m_sample_specification;
-    HashMap<NonnullRefPtr<AudioProducer>, InputMixingData> m_inputs;
-    Atomic<i64, MemoryOrder::memory_order_relaxed> m_next_frame_to_write { 0 };
+    RefPtr<AudioProducer> m_input;
+
+    OwnPtr<Audio::TimeStretcher> m_stretcher;
+    Atomic<float, MemoryOrder::memory_order_relaxed> m_rate { 1.0f };
+
+    i64 m_next_output_frame { 0 };
     bool m_started { false };
+    bool m_upstream_eos_signalled { false };
 
     PipelineStateChangeHandler m_state_changed_handler;
 };
