@@ -9,6 +9,7 @@
 #include <AK/AtomicRefCounted.h>
 #include <AK/Time.h>
 #include <LibCore/Forward.h>
+#include <LibCore/SharedCircularQueue.h>
 #include <LibMedia/Audio/PlaybackStream.h>
 #include <LibMedia/AudioBlock.h>
 #include <LibMedia/Producers/AudioProducer.h>
@@ -21,11 +22,15 @@
 namespace Media {
 
 static constexpr size_t OUTPUT_BLOCK_QUEUE_CAPACITY = 4;
+static constexpr size_t BLOCK_TIMING_QUEUE_CAPACITY = 32;
+
+using BlockTimingQueue = Core::SharedSingleProducerCircularQueue<AudioPlaybackSink::BlockTiming, BLOCK_TIMING_QUEUE_CAPACITY>;
 
 class AudioPlaybackSink::OutputThreadData : public AtomicRefCounted<OutputThreadData> {
 public:
-    OutputThreadData(PipelineStateChangeHandler on_state_changed)
+    OutputThreadData(PipelineStateChangeHandler on_state_changed, BlockTimingQueue time_records)
         : m_main_thread_event_loop(Core::EventLoop::current_weak())
+        , m_block_timings(move(time_records))
         , m_on_state_changed(move(on_state_changed))
     {
     }
@@ -46,6 +51,8 @@ public:
     size_t m_block_count { 0 };
     i64 m_next_frame_to_play { 0 };
 
+    BlockTimingQueue m_block_timings;
+
     PipelineStateChangeHandler m_on_state_changed;
     PipelineStatus m_last_pull_status { PipelineStatus::Pending };
     PipelineStatus m_last_dispatched_status { PipelineStatus::Pending };
@@ -58,7 +65,8 @@ public:
 
 ErrorOr<NonnullRefPtr<AudioPlaybackSink>> AudioPlaybackSink::try_create(PipelineStateChangeHandler on_state_changed)
 {
-    auto output_thread_data = TRY(adopt_nonnull_ref_or_enomem(new (nothrow) OutputThreadData(move(on_state_changed))));
+    auto time_records = TRY(BlockTimingQueue::create());
+    auto output_thread_data = TRY(adopt_nonnull_ref_or_enomem(new (nothrow) OutputThreadData(move(on_state_changed), move(time_records))));
     auto sink = TRY(try_make_ref_counted<AudioPlaybackSink>(output_thread_data));
 
     auto thread = TRY(Threading::Thread::try_create("Audio Processor"sv,
@@ -112,13 +120,22 @@ ErrorOr<NonnullRefPtr<AudioPlaybackSink>> AudioPlaybackSink::try_create(Pipeline
                         output_thread_data->m_block_tail = (tail_index + 1) % OUTPUT_BLOCK_QUEUE_CAPACITY;
                         ++output_thread_data->m_block_count;
 
+                        auto evicted = output_thread_data->m_block_timings.enqueue_with_eviction(AudioPlaybackSink::BlockTiming {
+                            .first_frame_index = output_block.first_frame_index(),
+                            .frame_count = static_cast<i64>(output_block.frame_count()),
+                            .media_time_start = output_block.media_time_start(),
+                            .media_time_duration = output_block.media_time_duration(),
+                        });
+                        if (evicted.has_value())
+                            dbgln("AudioPlaybackSink had to evict a block timing, capacity may be too small.");
+
                         if (output_thread_data->m_playback_stream)
                             output_thread_data->m_playback_stream->notify_data_available();
 
                         output_thread_data->m_waiting_for_upstream_data = false;
 
                         if (status == PipelineStatus::HaveData)
-                            output_thread_data->m_last_real_data_end_in_frames = output_block.end_timestamp_in_frames();
+                            output_thread_data->m_last_real_data_end_in_frames = output_block.end_frame_index();
 
                         // We need to lie about the pipeline status here on EndOfStream to complete seeks, the real
                         // status will be dispatched later.
@@ -260,7 +277,7 @@ ReadonlySpan<float> AudioPlaybackSink::OutputThreadData::move_output_to_playback
     while (samples_written < buffer.size() && m_block_count > 0) {
         auto const& head_block = m_blocks[m_block_head];
         auto channel_count = head_block.channel_count();
-        auto block_start_frame = head_block.timestamp_in_frames();
+        auto block_start_frame = head_block.first_frame_index();
         auto block_end_frame = block_start_frame + static_cast<i64>(head_block.frame_count());
 
         if (m_next_frame_to_play >= block_end_frame) {
@@ -328,14 +345,40 @@ AK::Duration AudioPlaybackSink::current_time() const
 {
     if (m_temporary_time.has_value())
         return m_temporary_time.value();
-    if (!m_output_thread_data->m_playback_stream)
-        return m_last_media_time;
+    if (!m_output_thread_data->m_playback_stream || !m_sample_specification.is_valid())
+        return m_minimum_media_time;
 
     auto stream_time = m_output_thread_data->m_playback_stream->total_time_played();
-    auto stream_delta = stream_time - m_last_stream_time;
-    if (m_playback_rate != 1.0f)
-        stream_delta = AK::Duration::from_microseconds(static_cast<i64>(static_cast<float>(stream_delta.to_microseconds()) * m_playback_rate));
-    return m_last_media_time + stream_delta;
+    auto stream_delta = stream_time - m_anchor_stream_time;
+    auto frames_played = stream_delta.to_time_units(1, m_sample_specification.sample_rate());
+    auto current_output_frame_index = m_anchor_output_frame_index + frames_played;
+
+    auto& timings = m_output_thread_data->m_block_timings;
+
+    while (!m_current_block_timing.has_value() || m_current_block_timing->end_frame_index() < current_output_frame_index) {
+        auto maybe_timing = timings.dequeue();
+        if (maybe_timing.is_error())
+            break;
+        m_current_block_timing = maybe_timing.release_value();
+    }
+
+    if (!m_current_block_timing.has_value())
+        return m_minimum_media_time;
+
+    auto const& timing = m_current_block_timing.value();
+    if (timing.first_frame_index > current_output_frame_index)
+        return m_minimum_media_time;
+
+    auto frames_played_in_block = AK::clamp_to<u32>(current_output_frame_index - timing.first_frame_index);
+    auto frame_count = AK::clamp_to<u32>(timing.frame_count);
+    if (frames_played_in_block < 0)
+        return m_minimum_media_time;
+    auto time = timing.media_time_start + timing.media_time_duration.scaled_by(frames_played_in_block, frame_count);
+    if (time > m_minimum_media_time)
+        m_minimum_media_time = time;
+    else
+        time = m_minimum_media_time;
+    return time;
 }
 
 void AudioPlaybackSink::resume()
@@ -351,7 +394,7 @@ void AudioPlaybackSink::resume()
     m_output_thread_data->m_playback_stream->resume()
         ->when_resolved([self = NonnullRefPtr(*this)](auto new_device_time) {
             self->m_main_thread_event_loop.deferred_invoke([self, new_device_time]() {
-                self->m_last_stream_time = new_device_time;
+                self->m_anchor_stream_time = new_device_time;
             });
         })
         .when_rejected([](auto&& error) {
@@ -370,9 +413,14 @@ void AudioPlaybackSink::pause()
             auto new_stream_time = self->m_output_thread_data->m_playback_stream->total_time_played();
 
             self->m_main_thread_event_loop.deferred_invoke([self, new_stream_time]() {
-                auto new_media_time = self->m_last_media_time + (new_stream_time - self->m_last_stream_time);
-                self->m_last_stream_time = new_stream_time;
-                self->m_last_media_time = new_media_time;
+                // Roll the heard-frame anchor forward so heard_frame stays continuous
+                // across the pause. total_time_played stops advancing during suspend,
+                // so without this roll a subsequent resume would re-zero the delta and
+                // jump heard_frame backward to the old anchor.
+                auto stream_delta = new_stream_time - self->m_anchor_stream_time;
+                auto frames_played = stream_delta.to_time_units(self->m_sample_specification.sample_rate(), 1);
+                self->m_anchor_output_frame_index += frames_played;
+                self->m_anchor_stream_time = new_stream_time;
             });
         })
         .when_rejected([](auto&& error) {
@@ -384,6 +432,8 @@ void AudioPlaybackSink::seek(AK::Duration time)
 {
     bool already_draining_for_seek = m_temporary_time.has_value();
     m_temporary_time = time;
+    m_minimum_media_time = time;
+    m_current_block_timing.clear();
 
     if (!m_output_thread_data->m_playback_stream)
         return;
@@ -400,6 +450,10 @@ void AudioPlaybackSink::seek(AK::Duration time)
         m_output_thread_data->m_last_pull_status = PipelineStatus::Pending;
         m_output_thread_data->m_last_dispatched_status = PipelineStatus::Pending;
         m_output_thread_data->m_waiting_for_upstream_data = true;
+        // Drain stale records. Data callback is suspended (or about to be via
+        // drain_buffer_and_suspend below) and m_block_count is 0, so no concurrent
+        // producer is enqueuing.
+        while (!m_output_thread_data->m_block_timings.dequeue().is_error()) { }
         if (m_output_thread_data->m_input != nullptr)
             m_output_thread_data->m_input->seek(time);
     }
@@ -412,8 +466,10 @@ void AudioPlaybackSink::seek(AK::Duration time)
             auto new_stream_time = self->m_output_thread_data->m_playback_stream->total_time_played();
 
             self->m_main_thread_event_loop.deferred_invoke([self, new_stream_time]() {
-                self->m_last_stream_time = new_stream_time;
-                self->m_last_media_time = self->m_temporary_time.release_value();
+                self->m_anchor_stream_time = new_stream_time;
+                auto seek_target = self->m_temporary_time.release_value();
+                self->m_anchor_output_frame_index = seek_target.to_time_units(1, self->m_sample_specification.sample_rate());
+                self->m_minimum_media_time = seek_target;
 
                 {
                     Threading::MutexLocker locker { self->m_output_thread_data->m_output_mutex };
@@ -453,11 +509,9 @@ ErrorOr<void> AudioPlaybackSink::set_playback_rate(float rate)
     if (m_output_thread_data->m_input != nullptr)
         TRY(m_output_thread_data->m_input->set_stretch(rate));
 
-    // Re-anchor so current_time() stays continuous across the rate change.
-    if (m_output_thread_data->m_playback_stream && !m_temporary_time.has_value()) {
-        m_last_media_time = current_time();
-        m_last_stream_time = m_output_thread_data->m_playback_stream->total_time_played();
-    }
+    // No anchor work needed: heard_frame is computed at the device's sample rate,
+    // which is independent of playback rate. Per-block media-time durations from the
+    // FIFO records carry the rate-dependent media span on their own.
     m_playback_rate = rate;
     return {};
 }

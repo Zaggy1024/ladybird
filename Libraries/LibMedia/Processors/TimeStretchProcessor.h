@@ -53,9 +53,26 @@ private:
     OwnPtr<Audio::TimeStretcher> m_stretcher;
     Atomic<float, MemoryOrder::memory_order_relaxed> m_rate { 1.0f };
 
+    // Output-stream position: first_frame_index for the next emitted block.
+    // Advances by the OUTPUT frame count of every emitted block, regardless of mode.
     i64 m_next_output_frame { 0 };
+    // Media-time of the next emit's start (= the last emit's media_time_end). Used as
+    // the media anchor at flush boundaries and as the upstream seek target on Stretcher
+    // → FastPath transitions. Advances by block.media_time_duration() per emit, so it
+    // diverges from m_next_output_frame whenever a non-unit-rate stretcher emit occurs.
+    AK::Duration m_next_emit_media_time;
     bool m_started { false };
     bool m_upstream_eos_signalled { false };
+
+    // The mode used by the previous pull. A change between calls implies a transition
+    // boundary: FastPath → Stretcher requires flushing the stretcher and pulling
+    // upstream backward by preroll; Stretcher → FastPath requires seeking upstream
+    // forward to m_next_output_frame so fast-path resumes contiguously.
+    enum class Mode : u8 {
+        FastPath,
+        Stretcher,
+    };
+    Mode m_mode { Mode::FastPath };
 
     PipelineStateChangeHandler m_state_changed_handler;
 };

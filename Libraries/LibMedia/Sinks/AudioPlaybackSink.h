@@ -8,6 +8,7 @@
 
 #include <AK/Function.h>
 #include <AK/NonnullRefPtr.h>
+#include <AK/Optional.h>
 #include <AK/RefPtr.h>
 #include <LibCore/EventLoop.h>
 #include <LibMedia/Audio/Forward.h>
@@ -26,6 +27,19 @@ private:
     class OutputThreadData;
 
 public:
+    // Per-block media-time/output-frame snapshot recorded when the data callback
+    // first touches a block. Used by current_time() to interpolate accurate media
+    // time from the audio device's stream position, independent of any rate-multiplier
+    // formula.
+    struct BlockTiming {
+        i64 first_frame_index;
+        i64 frame_count;
+        AK::Duration media_time_start;
+        AK::Duration media_time_duration;
+
+        i64 end_frame_index() const { return saturating_add(first_frame_index, frame_count); }
+    };
+
     static ErrorOr<NonnullRefPtr<AudioPlaybackSink>> try_create(PipelineStateChangeHandler on_state_changed);
     AudioPlaybackSink(NonnullRefPtr<OutputThreadData>);
     virtual ~AudioPlaybackSink() override;
@@ -55,10 +69,14 @@ private:
     bool m_playing { false };
     double m_volume { 1 };
 
-    AK::Duration m_last_stream_time;
-    AK::Duration m_last_media_time;
+    AK::Duration m_anchor_stream_time { AK::Duration::zero() };
+    i64 m_anchor_output_frame_index { 0 };
+
     Optional<AK::Duration> m_temporary_time;
     float m_playback_rate { 1.0f };
+
+    mutable Optional<BlockTiming> m_current_block_timing;
+    mutable AK::Duration m_minimum_media_time;
 
     NonnullRefPtr<OutputThreadData> m_output_thread_data;
 };

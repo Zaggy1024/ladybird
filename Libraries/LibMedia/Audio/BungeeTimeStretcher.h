@@ -13,13 +13,12 @@ namespace Audio {
 
 class BungeeTimeStretcher final : public TimeStretcher {
 public:
-    static NonnullOwnPtr<TimeStretcher> create(u32 sample_rate, u8 channel_count);
+    static ErrorOr<NonnullOwnPtr<TimeStretcher>> create(u32 sample_rate, u8 channel_count);
     virtual ~BungeeTimeStretcher() override;
 
-    virtual void flush(AK::Duration target_start_timestamp) override;
+    virtual i64 flush_and_get_preroll(AK::Duration media_start_timestamp, i64 output_start_frame_index) override;
     virtual void set_rate(float rate) override;
     virtual void set_pitch(float pitch) override;
-    virtual size_t preroll_input_frames() const override;
     virtual void push_block(Media::AudioBlock const& input) override;
     virtual Media::DecoderErrorOr<Media::AudioBlock> retrieve_block() override;
     virtual void signal_end_of_stream() override;

@@ -49,20 +49,23 @@ void TimeStretchProcessor::seek(AK::Duration timestamp)
 {
     Threading::MutexLocker locker { m_mutex };
 
+    m_next_emit_media_time = timestamp;
     if (m_sample_specification.is_valid())
         m_next_output_frame = timestamp.to_time_units(1, m_sample_specification.sample_rate());
     m_upstream_eos_signalled = false;
 
+    auto rate = m_rate.load();
     auto upstream_timestamp = timestamp;
-    if (m_stretcher) {
-        m_stretcher->set_rate(m_rate.load());
-        m_stretcher->flush(timestamp);
+    if (rate != 1.0f && m_stretcher) {
+        m_stretcher->set_rate(rate);
+        auto preroll = m_stretcher->flush_and_get_preroll(timestamp, m_next_output_frame);
         if (m_sample_specification.is_valid()) {
-            auto preroll_offset = AK::Duration::from_time_units(
-                static_cast<i64>(m_stretcher->preroll_input_frames()),
-                1, m_sample_specification.sample_rate());
+            auto preroll_offset = AK::Duration::from_time_units(preroll, 1, m_sample_specification.sample_rate());
             upstream_timestamp = max(AK::Duration::zero(), timestamp - preroll_offset);
         }
+        m_mode = Mode::Stretcher;
+    } else {
+        m_mode = Mode::FastPath;
     }
 
     if (m_input != nullptr)
@@ -99,7 +102,7 @@ ErrorOr<void> TimeStretchProcessor::set_stretch(float rate)
 {
     if (rate <= 0.0f)
         return Error::from_string_literal("Time-stretch rate must be positive");
-    m_rate.store(rate);
+    m_rate = rate;
     Threading::MutexLocker locker { m_mutex };
     if (m_stretcher)
         m_stretcher->set_rate(rate);
@@ -112,31 +115,56 @@ void TimeStretchProcessor::ensure_stretcher_while_locked()
         return;
     if (!m_sample_specification.is_valid())
         return;
-    m_stretcher = Audio::BungeeTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
-    m_stretcher->set_rate(m_rate.load());
-    m_stretcher->flush(AK::Duration::from_time_units(m_next_output_frame, 1, m_sample_specification.sample_rate()));
+    auto maybe_stretcher = Audio::BungeeTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
+    if (maybe_stretcher.is_error())
+        return;
+    m_stretcher = maybe_stretcher.release_value();
+    m_stretcher->set_rate(m_rate);
 }
 
 PipelineStatus TimeStretchProcessor::pull(AudioBlock& into)
 {
+    /*auto start_time = MonotonicTime::now();
+    ScopeGuard print_time = [&] {
+        auto end_time = MonotonicTime::now();
+        dbgln("TimeStretchProcessor::pull() took {}", end_time - start_time);
+    };*/
+
     Threading::MutexLocker locker { m_mutex };
     if (m_input == nullptr || !m_sample_specification.is_valid())
         return PipelineStatus::Pending;
 
     auto rate = m_rate.load();
 
-    // Fast path: at unit rate, pass blocks through unchanged.
-    if (rate == 1.0f) {
+    if (rate != 1.0f)
+        ensure_stretcher_while_locked();
+
+    if (rate == 1.0f || m_stretcher == nullptr) {
+        if (m_mode == Mode::Stretcher) {
+            m_input->seek(m_next_emit_media_time);
+            m_mode = Mode::FastPath;
+        }
+
         AudioBlock input_block;
         auto status = m_input->pull(input_block);
-        if (status != PipelineStatus::HaveData)
+        if (input_block.is_empty())
             return status;
+        VERIFY(can_carry_data(status));
+        input_block.set_first_frame_index(m_next_output_frame);
         into = move(input_block);
-        m_next_output_frame = into.end_timestamp_in_frames();
-        return PipelineStatus::HaveData;
+        m_next_output_frame = into.end_frame_index();
+        m_next_emit_media_time = into.media_time_end();
+        return status;
     }
 
-    ensure_stretcher_while_locked();
+    if (m_mode == Mode::FastPath) {
+        m_stretcher->set_rate(rate);
+        auto preroll = m_stretcher->flush_and_get_preroll(m_next_emit_media_time, m_next_output_frame);
+        auto preroll_offset = AK::Duration::from_time_units(preroll, 1, m_sample_specification.sample_rate());
+        auto upstream_target = max(AK::Duration::zero(), m_next_emit_media_time - preroll_offset);
+        m_input->seek(upstream_target);
+        m_mode = Mode::Stretcher;
+    }
 
     m_stretcher->set_rate(rate);
 
@@ -144,7 +172,8 @@ PipelineStatus TimeStretchProcessor::pull(AudioBlock& into)
         auto result = m_stretcher->retrieve_block();
         if (!result.is_error()) {
             into = result.release_value();
-            m_next_output_frame = into.end_timestamp_in_frames();
+            m_next_output_frame = into.end_frame_index();
+            m_next_emit_media_time = into.media_time_end();
             return PipelineStatus::HaveData;
         }
         if (result.error().category() != DecoderErrorCategory::NeedsMoreInput)
@@ -155,13 +184,15 @@ PipelineStatus TimeStretchProcessor::pull(AudioBlock& into)
 
         AudioBlock input_block;
         auto status = m_input->pull(input_block);
-        if (status == PipelineStatus::EndOfStream) {
-            m_stretcher->signal_end_of_stream();
-            m_upstream_eos_signalled = true;
-            continue;
-        }
-        if (status != PipelineStatus::HaveData)
+        if (input_block.is_empty()) {
+            if (status == PipelineStatus::EndOfStream) {
+                m_stretcher->signal_end_of_stream();
+                m_upstream_eos_signalled = true;
+                continue;
+            }
             return status;
+        }
+        VERIFY(can_carry_data(status));
         m_stretcher->push_block(input_block);
     }
 }
