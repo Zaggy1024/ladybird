@@ -139,7 +139,7 @@ ErrorOr<void> FFmpegAudioConverter::convert(AudioBlock& input)
     VERIFY(converted_frames_result <= m_output_buffer_frame_count);
     auto converted_frames = static_cast<size_t>(converted_frames_result);
 
-    input.emplace(m_output_sample_specification, input.timestamp(), [&](AudioBlock::Data& data) {
+    input.emplace(m_output_sample_specification, input.media_time_start(), [&](AudioBlock::Data& data) {
         data.resize_and_keep_capacity(converted_frames * output_channel_count);
         AK::TypedTransfer<float>::copy(data.data(), reinterpret_cast<float*>(m_output_buffer), data.size());
     });

@@ -95,6 +95,55 @@ Duration Duration::from_time_units(i64 time_units, u32 numerator, u32 denominato
     return Duration(seconds, static_cast<u32>(nanoseconds));
 }
 
+Duration Duration::scaled_by(u32 numerator, u32 denominator) const
+{
+    VERIFY(denominator != 0);
+
+    if (numerator == 0)
+        return Duration::zero();
+    if (numerator == denominator)
+        return *this;
+
+    // Compute (m_seconds * 1e9 + m_nanoseconds) * numerator / denominator. We avoid a
+    // 128-bit intermediate by scaling seconds and nanoseconds separately and feeding
+    // the seconds-product remainder into the nanosecond calculation, the same way
+    // from_time_units splits its work.
+    if (Checked<i64>::multiplication_would_overflow(m_seconds, numerator))
+        return Duration(m_seconds < 0 ? NumericLimits<i64>::min() : NumericLimits<i64>::max(), 0);
+    auto seconds_product = m_seconds * static_cast<i64>(numerator);
+    auto seconds = seconds_product / static_cast<i64>(denominator);
+    auto seconds_remainder = seconds_product % static_cast<i64>(denominator);
+    if (seconds_remainder < 0) {
+        if (seconds == NumericLimits<i64>::min())
+            return Duration(NumericLimits<i64>::min(), 0);
+        seconds--;
+        seconds_remainder += denominator;
+    }
+
+    // numerator_ns = seconds_remainder * 1e9 + m_nanoseconds * numerator. With
+    // seconds_remainder in [0, denominator) and denominator + numerator each at most
+    // u32 max (~4.3e9), each term is bounded by ~4.3e18 and the sum by ~8.6e18 —
+    // within i64 range (max ~9.2e18).
+    auto numerator_ns = seconds_remainder * 1'000'000'000 + static_cast<i64>(m_nanoseconds) * static_cast<i64>(numerator);
+    auto total_ns = (numerator_ns + denominator / 2) / static_cast<i64>(denominator);
+
+    // total_ns is non-negative (numerator_ns is non-negative; denominator > 0). It
+    // can exceed 1e9 — for instance when scaling by numerator > denominator — so
+    // factor any whole-second contribution into seconds before bounding the nanos.
+    auto extra_seconds = total_ns / 1'000'000'000;
+    auto nanoseconds = total_ns % 1'000'000'000;
+    if (extra_seconds > 0) {
+        Checked<i64> total_seconds = seconds;
+        total_seconds += extra_seconds;
+        if (total_seconds.has_overflow())
+            return Duration(NumericLimits<i64>::max(), 999'999'999);
+        seconds = total_seconds.value();
+    }
+    VERIFY(nanoseconds >= 0);
+    VERIFY(nanoseconds < 1'000'000'000);
+    return Duration(seconds, static_cast<u32>(nanoseconds));
+}
+
 i64 Duration::to_truncated_seconds() const
 {
     VERIFY(m_nanoseconds < 1'000'000'000);

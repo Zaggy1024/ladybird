@@ -7,7 +7,6 @@
 #pragma once
 
 #include <AK/Math.h>
-#include <AK/Optional.h>
 #include <AK/SaturatingMath.h>
 #include <AK/Time.h>
 #include <AK/Vector.h>
@@ -20,64 +19,69 @@ public:
     using Data = Vector<float>;
 
     Audio::SampleSpecification const& sample_specification() const { return m_sample_specification; }
-    AK::Duration timestamp() const { return m_timestamp; }
-    i64 timestamp_in_frames() const { return m_timestamp_in_frames; }
-    // Number of source-rate (media-time) frames represented by this block. Defaults to
-    // frame_count() — i.e. one input media frame per output frame — and only differs
-    // after a TimeStretchProcessor sets it explicitly. Used by current-time math; not
-    // by the queue-management arithmetic that compares timestamps against output indices.
-    i64 input_frame_count() const { return m_input_frame_count_override.value_or(AK::clamp_to<i64>(frame_count())); }
-    i64 end_timestamp_in_frames() const { return saturating_add(m_timestamp_in_frames, AK::clamp_to<i64>(frame_count())); }
-    AK::Duration end_timestamp() const { return AK::Duration::from_time_units(end_timestamp_in_frames(), 1, sample_rate()); }
+
+    AK::Duration media_time_start() const { return m_media_time_start; }
+    AK::Duration media_time_duration() const { return m_media_time_duration; }
+    AK::Duration media_time_end() const { return m_media_time_start + m_media_time_duration; }
+
+    i64 first_frame_index() const { return m_first_frame_index; }
+    i64 end_frame_index() const { return saturating_add(m_first_frame_index, AK::clamp_to<i64>(frame_count())); }
+
     Span<float> data() { return m_data; }
     ReadonlySpan<float> data() const { return m_data; }
 
     void clear()
     {
         m_sample_specification = {};
-        m_timestamp_in_frames = 0;
-        m_input_frame_count_override.clear();
+        m_media_time_start = {};
+        m_media_time_duration = {};
+        m_first_frame_index = 0;
         m_data.clear_with_capacity();
     }
     template<typename Callback>
-    void emplace(Audio::SampleSpecification sample_specification, AK::Duration timestamp, Callback data_callback)
+    void emplace(Audio::SampleSpecification sample_specification, AK::Duration media_time_start, Callback data_callback)
     {
         VERIFY(sample_specification.is_valid());
         m_sample_specification = sample_specification;
-        m_timestamp = timestamp;
-        m_timestamp_in_frames = timestamp.to_time_units(1, sample_rate());
-        m_input_frame_count_override.clear();
+        m_media_time_start = media_time_start;
+        m_first_frame_index = media_time_start.to_time_units(1, sample_rate());
         data_callback(m_data);
+        recalculate_media_duration_from_frame_count();
     }
     template<typename Callback>
-    void emplace(Audio::SampleSpecification sample_specification, i64 timestamp_in_frames, Callback data_callback)
+    void emplace(Audio::SampleSpecification sample_specification, i64 first_frame_index, Callback data_callback)
     {
         VERIFY(sample_specification.is_valid());
         m_sample_specification = sample_specification;
-        m_timestamp_in_frames = timestamp_in_frames;
-        m_timestamp = AK::Duration::from_time_units(timestamp_in_frames, 1, sample_rate());
-        m_input_frame_count_override.clear();
+        m_first_frame_index = first_frame_index;
+        m_media_time_start = AK::Duration::from_time_units(first_frame_index, 1, sample_rate());
         data_callback(m_data);
+        recalculate_media_duration_from_frame_count();
     }
     void trim(size_t frame_count)
     {
         m_data.resize_and_keep_capacity(frame_count * channel_count());
+        recalculate_media_duration_from_frame_count();
     }
     u32 sample_rate() const
     {
         return sample_specification().sample_rate();
     }
-    void set_timestamp_in_frames(i64 timestamp_in_frames)
+    void set_media_time_start(AK::Duration media_time_start)
     {
         VERIFY(!is_empty());
-        m_timestamp_in_frames = timestamp_in_frames;
-        m_timestamp = AK::Duration::from_time_units(timestamp_in_frames, 1, sample_rate());
+        m_media_time_start = media_time_start;
     }
-    void set_input_frame_count(i64 input_frame_count)
+    void set_media_time_duration(AK::Duration media_time_duration)
     {
         VERIFY(!is_empty());
-        VERIFY(input_frame_count >= 0);
-        m_input_frame_count_override = input_frame_count;
+        VERIFY(!media_time_duration.is_negative());
+        m_media_time_duration = media_time_duration;
+    }
+    void set_first_frame_index(i64 first_frame_index)
+    {
+        VERIFY(!is_empty());
+        m_first_frame_index = first_frame_index;
     }
     bool is_empty() const
     {
@@ -97,10 +101,15 @@ public:
     }
 
 private:
+    void recalculate_media_duration_from_frame_count()
+    {
+        m_media_time_duration = AK::Duration::from_time_units(static_cast<i64>(frame_count()), 1, sample_rate());
+    }
+
     Audio::SampleSpecification m_sample_specification;
-    AK::Duration m_timestamp;
-    i64 m_timestamp_in_frames { 0 };
-    Optional<i64> m_input_frame_count_override;
+    AK::Duration m_media_time_start;
+    AK::Duration m_media_time_duration;
+    i64 m_first_frame_index { 0 };
     Data m_data;
 };
 
