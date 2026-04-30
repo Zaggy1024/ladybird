@@ -19,6 +19,10 @@ public:
     virtual void resume() = 0;
     virtual void pause() = 0;
     virtual void seek(AK::Duration) = 0;
+
+    // Rate is a positive multiplier (1.0 = normal speed). Concrete providers may reject rates
+    // they cannot support (e.g. an audio-driven provider whose pipeline contains no time-stretcher).
+    virtual ErrorOr<void> set_playback_rate(float rate) = 0;
 };
 
 }

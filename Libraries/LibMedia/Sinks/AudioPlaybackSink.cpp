@@ -332,7 +332,10 @@ AK::Duration AudioPlaybackSink::current_time() const
         return m_last_media_time;
 
     auto stream_time = m_output_thread_data->m_playback_stream->total_time_played();
-    return m_last_media_time + (stream_time - m_last_stream_time);
+    auto stream_delta = stream_time - m_last_stream_time;
+    if (m_playback_rate != 1.0f)
+        stream_delta = AK::Duration::from_microseconds(static_cast<i64>(static_cast<float>(stream_delta.to_microseconds()) * m_playback_rate));
+    return m_last_media_time + stream_delta;
 }
 
 void AudioPlaybackSink::resume()
@@ -438,6 +441,25 @@ void AudioPlaybackSink::set_volume(double volume)
                 // FIXME: Do we even need this function to return a promise?
             });
     }
+}
+
+ErrorOr<void> AudioPlaybackSink::set_playback_rate(float rate)
+{
+    if (rate <= 0.0f)
+        return Error::from_string_literal("Playback rate must be positive");
+    if (m_playback_rate == rate)
+        return {};
+
+    if (m_output_thread_data->m_input != nullptr)
+        TRY(m_output_thread_data->m_input->set_stretch(rate));
+
+    // Re-anchor so current_time() stays continuous across the rate change.
+    if (m_output_thread_data->m_playback_stream && !m_temporary_time.has_value()) {
+        m_last_media_time = current_time();
+        m_last_stream_time = m_output_thread_data->m_playback_stream->total_time_played();
+    }
+    m_playback_rate = rate;
+    return {};
 }
 
 }

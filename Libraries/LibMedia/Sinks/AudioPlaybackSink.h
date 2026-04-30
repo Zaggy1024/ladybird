@@ -38,6 +38,7 @@ public:
     virtual void resume() override;
     virtual void pause() override;
     virtual void seek(AK::Duration) override;
+    virtual ErrorOr<void> set_playback_rate(float rate) override;
 
     void set_volume(double);
 
@@ -57,6 +58,7 @@ private:
     AK::Duration m_last_stream_time;
     AK::Duration m_last_media_time;
     Optional<AK::Duration> m_temporary_time;
+    float m_playback_rate { 1.0f };
 
     NonnullRefPtr<OutputThreadData> m_output_thread_data;
 };

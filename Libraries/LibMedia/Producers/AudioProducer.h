@@ -25,6 +25,8 @@ public:
     virtual void set_state_changed_handler(PipelineStateChangeHandler) = 0;
 
     virtual void seek(AK::Duration timestamp) = 0;
+
+    virtual ErrorOr<void> set_stretch(float) { return Error::from_string_literal("Time stretching is unsupported"); }
 };
 
 }

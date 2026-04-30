@@ -27,6 +27,7 @@ class MediaStreamCursor;
 class MediaTimeProvider;
 class PlaybackManager;
 class ReadonlyBytesCursor;
+class TimeStretchProcessor;
 class Track;
 class VideoDecoder;
 class VideoFrame;

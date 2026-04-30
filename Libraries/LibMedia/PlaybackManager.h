@@ -92,6 +92,7 @@ public:
     TimeRanges buffered_time_ranges() const;
 
     void set_volume(double);
+    ErrorOr<void> set_playback_rate(float rate);
 
     Function<void()> on_metadata_parsed;
     Function<void(DecoderError&&)> on_unsupported_format_error;
@@ -165,6 +166,7 @@ private:
     NonnullRefPtr<WeakPlaybackManagerLink> m_weak_link;
 
     NonnullRefPtr<MediaTimeProvider> m_time_provider;
+    float m_playback_rate { 1.0f };
 
     bool m_audio_output_disabled { false };
 
@@ -172,6 +174,7 @@ private:
     VideoTrackDatas m_video_track_datas;
 
     RefPtr<AudioMixer> m_audio_mixer;
+    RefPtr<TimeStretchProcessor> m_time_stretch_processor;
     RefPtr<AudioPlaybackSink> m_audio_sink;
     AudioTracks m_audio_tracks;
     AudioTrackDatas m_audio_track_datas;

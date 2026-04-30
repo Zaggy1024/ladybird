@@ -7,6 +7,7 @@
 #pragma once
 
 #include <AK/Math.h>
+#include <AK/Optional.h>
 #include <AK/SaturatingMath.h>
 #include <AK/Time.h>
 #include <AK/Vector.h>
@@ -21,6 +22,11 @@ public:
     Audio::SampleSpecification const& sample_specification() const { return m_sample_specification; }
     AK::Duration timestamp() const { return m_timestamp; }
     i64 timestamp_in_frames() const { return m_timestamp_in_frames; }
+    // Number of source-rate (media-time) frames represented by this block. Defaults to
+    // frame_count() — i.e. one input media frame per output frame — and only differs
+    // after a TimeStretchProcessor sets it explicitly. Used by current-time math; not
+    // by the queue-management arithmetic that compares timestamps against output indices.
+    i64 input_frame_count() const { return m_input_frame_count_override.value_or(AK::clamp_to<i64>(frame_count())); }
     i64 end_timestamp_in_frames() const { return saturating_add(m_timestamp_in_frames, AK::clamp_to<i64>(frame_count())); }
     AK::Duration end_timestamp() const { return AK::Duration::from_time_units(end_timestamp_in_frames(), 1, sample_rate()); }
     Span<float> data() { return m_data; }
@@ -30,6 +36,7 @@ public:
     {
         m_sample_specification = {};
         m_timestamp_in_frames = 0;
+        m_input_frame_count_override.clear();
         m_data.clear_with_capacity();
     }
     template<typename Callback>
@@ -39,6 +46,7 @@ public:
         m_sample_specification = sample_specification;
         m_timestamp = timestamp;
         m_timestamp_in_frames = timestamp.to_time_units(1, sample_rate());
+        m_input_frame_count_override.clear();
         data_callback(m_data);
     }
     template<typename Callback>
@@ -48,6 +56,7 @@ public:
         m_sample_specification = sample_specification;
         m_timestamp_in_frames = timestamp_in_frames;
         m_timestamp = AK::Duration::from_time_units(timestamp_in_frames, 1, sample_rate());
+        m_input_frame_count_override.clear();
         data_callback(m_data);
     }
     void trim(size_t frame_count)
@@ -63,6 +72,12 @@ public:
         VERIFY(!is_empty());
         m_timestamp_in_frames = timestamp_in_frames;
         m_timestamp = AK::Duration::from_time_units(timestamp_in_frames, 1, sample_rate());
+    }
+    void set_input_frame_count(i64 input_frame_count)
+    {
+        VERIFY(!is_empty());
+        VERIFY(input_frame_count >= 0);
+        m_input_frame_count_override = input_frame_count;
     }
     bool is_empty() const
     {
@@ -85,6 +100,7 @@ private:
     Audio::SampleSpecification m_sample_specification;
     AK::Duration m_timestamp;
     i64 m_timestamp_in_frames { 0 };
+    Optional<i64> m_input_frame_count_override;
     Data m_data;
 };
 
