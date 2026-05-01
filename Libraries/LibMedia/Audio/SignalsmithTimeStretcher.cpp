@@ -9,6 +9,7 @@
 // alongside for std::round/std::lround used here.
 #include <cmath>
 
+#include <AK/Format.h>
 #include <AK/Math.h>
 #include <AK/NumericLimits.h>
 #include <AK/TypedTransfer.h>
@@ -16,6 +17,9 @@
 #include <signalsmith-stretch/signalsmith-stretch.h>
 
 #include "SignalsmithTimeStretcher.h"
+
+// Set to 1 to enable verbose tracing of warmup/emit timing for alignment debugging.
+#define SIGNALSMITH_STRETCH_TRACE 1
 
 namespace Audio {
 
@@ -54,11 +58,16 @@ struct SignalsmithTimeStretcher::Impl {
     // media_time_start.
     i64 input_consumed_post_seek { 0 };
 
-    // Preroll/seek bookkeeping. seek() must be called once per flush, with at least
-    // preroll_target frames of historical input. preroll_pending is true between
-    // flush and the seek() call.
-    int preroll_target { 0 };
-    bool preroll_pending { true };
+    // Single-phase warmup. We don't call signalsmith's seek() — using it would
+    // give us aligned analysis but partial OLA at the first emit (only 3 of 4
+    // grains overlap at synthesis position inputLatency, audible as a ~30 ms
+    // crossfade between pre-target and post-target content). Instead we feed
+    // (blockSamples + intervalSamples + inputLatency) = 1.5×windowSize + interval
+    // input frames through plain process() with the output discarded. By the
+    // synthesis position where the next emit lands, four contributing grains
+    // are present and have all analyzed real content, so the first emitted
+    // sample is at content media_target with full OLA from frame zero.
+    int warmup_input_frames_remaining { 0 };
 
     bool eos_signalled { false };
     bool eos_drained { false };
@@ -69,11 +78,42 @@ struct SignalsmithTimeStretcher::Impl {
         , channel_count(cc)
     {
         stretch.presetDefault(channel_count, static_cast<float>(sample_rate));
-        stride = stretch.blockSamples() + stretch.intervalSamples() + INPUT_BUFFER_MARGIN_FRAMES;
+        // The buffer must hold the full warmup (1.5×windowSize + interval) plus
+        // at least one regular chunk's worth of pending input. Add a margin.
+        stride = stretch.blockSamples() + (stretch.blockSamples() / 2) + stretch.intervalSamples() + INPUT_BUFFER_MARGIN_FRAMES;
         input_planar.resize(static_cast<size_t>(stride) * static_cast<size_t>(channel_count));
-        // Output scratch: one chunk × channels.
+        // Output scratch: one chunk × channels. Resized on demand for warmup at slow rates.
         output_planar.resize(static_cast<size_t>(stretch.intervalSamples()) * static_cast<size_t>(channel_count));
-        preroll_target = stretch.blockSamples() + stretch.intervalSamples();
+    }
+
+    // For the first regular emit at synthesis position T_first to have
+    // (a) full OLA (4 contributing grains) AND
+    // (b) all four of those grains analyzed entirely real content (not partial
+    //     zero from the empty initial history), we need:
+    //   T_first ≥ windowSize/rate + 3 × interval
+    // The first term is "smallest sync where a grain's analysis range starts
+    // at or after lib_input[0]" (the boundary between zero history and pushed
+    // input), and 3 × interval accounts for the three preceding overlapping
+    // grains that must also be real.
+    //
+    // We round T_first up to the next interval-multiple. Then warmup_input =
+    // T_first × rate gives the corresponding input consumption — and content
+    // alignment falls out automatically: under the library's uniform mapping
+    // output[i] = input[i × rate], output[T_first] reads input[warmup_input]
+    // which sits at media_target.
+    int total_warmup_output_frames() const
+    {
+        auto r = static_cast<double>(rate);
+        auto interval = static_cast<double>(stretch.intervalSamples());
+        auto window = static_cast<double>(stretch.blockSamples());
+        auto min_T = (window / r) + (3.0 * interval);
+        auto multiples = static_cast<int>(std::ceil(min_T / interval));
+        return multiples * stretch.intervalSamples();
+    }
+    int total_warmup_input_frames() const
+    {
+        return static_cast<int>(std::lround(
+            static_cast<double>(total_warmup_output_frames()) * static_cast<double>(rate)));
     }
 
     int output_chunk_frames() const { return stretch.intervalSamples(); }
@@ -186,17 +226,36 @@ i64 SignalsmithTimeStretcher::flush_and_get_preroll(AK::Duration media_start_tim
     m_impl->input_consumed_post_seek = 0;
     m_impl->eos_signalled = false;
     m_impl->eos_drained = false;
-    m_impl->preroll_pending = true;
+
+    auto warmup = m_impl->total_warmup_input_frames();
+    m_impl->warmup_input_frames_remaining = warmup;
 
     auto media_start_in_frames = media_start_timestamp.to_time_units(1, m_impl->sample_rate);
-    m_impl->position_origin_media_frame = media_start_in_frames;
+    // Compensate for signalsmith's algorithmic input lag: process() reads input
+    // ahead of its synthesis cursor by inputLatency = windowSize/2 input frames,
+    // so output at a given synthesis position reflects content from that many
+    // input frames earlier. Without this shift the sink would stamp blocks at
+    // media_target while the audio is actually playing content from
+    // inputLatency input frames before target — perceived as a wall-clock delay
+    // of inputLatency / (rate × sample_rate) (longer at slower rates). Shifting
+    // position_origin back by inputLatency makes media_time_start match the
+    // listener's actual content position, so UI tracks audio in lock-step.
+    m_impl->position_origin_media_frame = media_start_in_frames - m_impl->stretch.inputLatency();
     m_impl->next_output_frame_index = output_start_frame_index;
 
-    // The caller will pull upstream backward by this many frames, so the first
-    // preroll_target frames pushed into push_block are pre-target history; we'll
-    // pass them to seek() and discard them once the seek seeds the stretcher.
-    m_impl->expected_next_input_media_frame = media_start_in_frames - m_impl->preroll_target;
-    return static_cast<i64>(m_impl->preroll_target);
+    // TSP will pull upstream backward by `warmup` frames. The first `warmup`
+    // frames pushed into push_block are pre-target/historical context that we
+    // feed straight through process() (output discarded) so the library has
+    // computed enough grains and analyzed enough real content for the first
+    // real emit to be both aligned and full-OLA.
+    m_impl->expected_next_input_media_frame = media_start_in_frames - warmup;
+#if SIGNALSMITH_STRETCH_TRACE
+    dbgln("[signalsmith] flush: media_start={} (={}fr) output_anchor={} rate={} preroll={}fr blockSamples={} intervalSamples={} inputLatency={} outputLatency={}",
+        media_start_timestamp, media_start_in_frames, output_start_frame_index, m_impl->rate,
+        warmup, m_impl->stretch.blockSamples(), m_impl->stretch.intervalSamples(),
+        m_impl->stretch.inputLatency(), m_impl->stretch.outputLatency());
+#endif
+    return static_cast<i64>(warmup);
 }
 
 void SignalsmithTimeStretcher::push_block(Media::AudioBlock const& input)
@@ -239,6 +298,10 @@ void SignalsmithTimeStretcher::push_block(Media::AudioBlock const& input)
     auto remaining = frame_count - frames_to_skip;
     m_impl->append_interleaved_to_input(input.data().data(), frames_to_skip, remaining);
     m_impl->expected_next_input_media_frame = block_start + frame_count;
+#if SIGNALSMITH_STRETCH_TRACE
+    dbgln("[signalsmith] push_block: first_frame_index={} frame_count={} skipped={} silence_padded={} input_valid_count={}",
+        block_start, frame_count, frames_to_skip, gap > 0 ? gap : 0, m_impl->input_valid_count);
+#endif
 }
 
 void SignalsmithTimeStretcher::signal_end_of_stream()
@@ -251,18 +314,44 @@ Media::DecoderErrorOr<Media::AudioBlock> SignalsmithTimeStretcher::retrieve_bloc
     auto& impl = *m_impl;
     auto channel_count = impl.channel_count;
 
-    // Phase 1: feed seek() once we have preroll_target frames of historical input.
-    if (impl.preroll_pending) {
-        if (impl.input_valid_count < impl.preroll_target) {
+    // Phase 1: warmup. Feed (1.5×windowSize + interval) input frames through
+    // plain process() with the output discarded. After this, the library has
+    // computed enough grains and seen enough real content that the first real
+    // emit is aligned at media_target AND has full OLA from the first sample
+    // (no ramp-in crossfade with pre-target content).
+    if (impl.warmup_input_frames_remaining > 0) {
+        int warmup_input_count = impl.warmup_input_frames_remaining;
+        int warmup_output_count = AK::clamp_to<int>(
+            max<i64>(1, static_cast<i64>(std::lround(static_cast<double>(warmup_input_count) / static_cast<double>(impl.rate)))));
+
+        if (impl.input_valid_count < warmup_input_count) {
+#if SIGNALSMITH_STRETCH_TRACE
+            dbgln("[signalsmith] retrieve: warmup waiting (have={} need={})",
+                impl.input_valid_count, warmup_input_count);
+#endif
             return Media::DecoderError::with_description(
                 Media::DecoderErrorCategory::NeedsMoreInput,
-                "Time-stretcher needs preroll input"sv);
+                "Time-stretcher needs more input for warmup"sv);
         }
-        auto preroll_pointers = channel_pointers_in(impl.input_planar, impl.stride, channel_count);
-        impl.stretch.seek(preroll_pointers, impl.preroll_target, static_cast<double>(impl.rate));
-        // Drop the preroll frames; the library now owns them as history.
-        impl.drop_input_front(impl.preroll_target);
-        impl.preroll_pending = false;
+
+        // Resize the output scratch on demand. At slow rates (e.g. 0.25x),
+        // warmup_output_count can be several windowSizes.
+        size_t needed = static_cast<size_t>(warmup_output_count) * channel_count;
+        if (impl.output_planar.size() < needed)
+            impl.output_planar.resize(needed);
+
+        auto input_pointers = channel_pointers_in(impl.input_planar, impl.stride, channel_count);
+        auto output_pointers = channel_pointers_in(impl.output_planar, warmup_output_count, channel_count);
+#if SIGNALSMITH_STRETCH_TRACE
+        dbgln("[signalsmith] retrieve: warmup process input={} output={} (rate={})",
+            warmup_input_count, warmup_output_count, impl.rate);
+#endif
+        impl.stretch.process(input_pointers, warmup_input_count, output_pointers, warmup_output_count);
+        impl.drop_input_front(warmup_input_count);
+        // input_consumed_post_seek and next_output_frame_index are not advanced —
+        // the warmup output is discarded; the next emit's media_time_start is
+        // position_origin = media_target.
+        impl.warmup_input_frames_remaining = 0;
     }
 
     // Phase 2: regular process().
@@ -352,6 +441,16 @@ Media::DecoderErrorOr<Media::AudioBlock> SignalsmithTimeStretcher::retrieve_bloc
     });
     out.set_media_time_start(AK::Duration::from_time_units(media_start_in_frames, 1, impl.sample_rate));
     out.set_media_time_duration(AK::Duration::from_time_units(media_duration_in_frames, 1, impl.sample_rate));
+
+#if SIGNALSMITH_STRETCH_TRACE
+    bool first_emit = (impl.input_consumed_post_seek == 0);
+    if (first_emit) {
+        dbgln("[signalsmith] retrieve: FIRST EMIT input={} output={} first_frame_index={} media_time_start={}fr (={}us) media_time_duration={}fr position_origin={}fr input_consumed_pre={}",
+            input_count, output_count, out_anchor,
+            media_start_in_frames, AK::Duration::from_time_units(media_start_in_frames, 1, impl.sample_rate).to_microseconds(),
+            media_duration_in_frames, impl.position_origin_media_frame, impl.input_consumed_post_seek);
+    }
+#endif
 
     impl.drop_input_front(input_count);
     impl.input_consumed_post_seek += input_count;
