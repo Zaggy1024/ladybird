@@ -5,6 +5,7 @@
  */
 
 #include <LibMedia/Audio/BungeeTimeStretcher.h>
+#include <LibMedia/Audio/SignalsmithTimeStretcher.h>
 #include <LibMedia/Processors/TimeStretchProcessor.h>
 
 namespace Media {
@@ -115,7 +116,10 @@ void TimeStretchProcessor::ensure_stretcher_while_locked()
         return;
     if (!m_sample_specification.is_valid())
         return;
-    auto maybe_stretcher = Audio::BungeeTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
+    // Experiment: signalsmith-stretch in place of Bungee. Swap back to
+    // BungeeTimeStretcher::create here to compare.
+    auto maybe_stretcher = Audio::SignalsmithTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
+    //auto maybe_stretcher = Audio::BungeeTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
     if (maybe_stretcher.is_error())
         return;
     m_stretcher = maybe_stretcher.release_value();
@@ -124,11 +128,11 @@ void TimeStretchProcessor::ensure_stretcher_while_locked()
 
 PipelineStatus TimeStretchProcessor::pull(AudioBlock& into)
 {
-    /*auto start_time = MonotonicTime::now();
+    auto start_time = MonotonicTime::now();
     ScopeGuard print_time = [&] {
         auto end_time = MonotonicTime::now();
         dbgln("TimeStretchProcessor::pull() took {}", end_time - start_time);
-    };*/
+    };
 
     Threading::MutexLocker locker { m_mutex };
     if (m_input == nullptr || !m_sample_specification.is_valid())

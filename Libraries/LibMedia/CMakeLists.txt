@@ -5,6 +5,7 @@ include(ffmpeg)
 set(SOURCES
     Audio/AudioDevices.cpp
     Audio/BungeeTimeStretcher.cpp
+    Audio/SignalsmithTimeStretcher.cpp
     Containers/Matroska/MatroskaDemuxer.cpp
     Containers/Matroska/Reader.cpp
     GenericTimeProvider.cpp
