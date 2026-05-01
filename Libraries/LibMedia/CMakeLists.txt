@@ -6,6 +6,8 @@ set(SOURCES
     Audio/AudioDevices.cpp
     Audio/BungeeTimeStretcher.cpp
     Audio/SignalsmithTimeStretcher.cpp
+    Audio/SonicTimeStretcher.cpp
+    Audio/sonic/sonic.c
     Containers/Matroska/MatroskaDemuxer.cpp
     Containers/Matroska/Reader.cpp
     GenericTimeProvider.cpp
@@ -26,6 +28,8 @@ set(SOURCES
 )
 
 find_package(unofficial-bungee CONFIG REQUIRED)
+
+set_source_files_properties(Audio/sonic/sonic.c PROPERTIES COMPILE_OPTIONS "-Wno-unused-parameter")
 
 ladybird_lib(LibMedia media EXPLICIT_SYMBOL_EXPORT)
 target_link_libraries(LibMedia PRIVATE LibCore LibCrypto LibIPC LibGfx LibThreading LibUnicode unofficial::bungee::bungee)
