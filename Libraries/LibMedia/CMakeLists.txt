@@ -5,6 +5,10 @@ include(ffmpeg)
 set(SOURCES
     Audio/AudioDevices.cpp
     Audio/BungeeTimeStretcher.cpp
+    Audio/Chromium/AudioBus.cpp
+    Audio/Chromium/AudioRendererAlgorithm.cpp
+    Audio/Chromium/WsolaInternals.cpp
+    Audio/ChromiumWsolaTimeStretcher.cpp
     Audio/SignalsmithTimeStretcher.cpp
     Audio/SonicTimeStretcher.cpp
     Audio/sonic/sonic.c
