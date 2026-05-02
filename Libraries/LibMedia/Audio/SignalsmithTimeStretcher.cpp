@@ -63,7 +63,7 @@ struct SignalsmithTimeStretcher::Impl {
         : sample_rate(sample_rate)
         , channel_count(channel_count)
     {
-        stretch.presetDefault(channel_count, static_cast<float>(sample_rate));
+        stretch.configure(channel_count, sample_rate * 65 / 1000, sample_rate * 15 / 1000);
         output_planar.resize(static_cast<size_t>(stretch.intervalSamples()) * static_cast<size_t>(channel_count));
         // input_planar is allocated lazily by the first ensure_input_buffer_capacity()
         // call from set_rate.
