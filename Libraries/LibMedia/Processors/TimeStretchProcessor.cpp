@@ -5,6 +5,7 @@
  */
 
 #include <LibMedia/Audio/BungeeTimeStretcher.h>
+#include <LibMedia/Audio/ChromiumWsolaTimeStretcher.h>
 #include <LibMedia/Audio/SignalsmithTimeStretcher.h>
 #include <LibMedia/Audio/SonicTimeStretcher.h>
 #include <LibMedia/Processors/TimeStretchProcessor.h>
@@ -118,7 +119,8 @@ void TimeStretchProcessor::ensure_stretcher_while_locked()
     if (!m_sample_specification.is_valid())
         return;
     // Experiment: swap between backends here to A/B different time-stretch algorithms.
-    auto maybe_stretcher = Audio::SonicTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
+    auto maybe_stretcher = Audio::ChromiumWsolaTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
+    //auto maybe_stretcher = Audio::SonicTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
     //auto maybe_stretcher = Audio::SignalsmithTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
     //auto maybe_stretcher = Audio::BungeeTimeStretcher::create(m_sample_specification.sample_rate(), m_sample_specification.channel_count());
     if (maybe_stretcher.is_error())
