@@ -2,6 +2,7 @@
 <script>internals.setAutoplayPolicy("allow-audio-and-video");</script>
 <video id="video"></video>
 <script src="../include.js"></script>
+<script src="HTMLMediaElement-include.js"></script>
 <script>
     // Mirrors a player reusing a MediaSource after its media ended: remove all data, seek back, and play before new
     // data arrives. Nothing is buffered, so readyState stays at HAVE_METADATA throughout the seek.
@@ -45,7 +46,7 @@
 
                 sourceBuffer.remove(0, Infinity);
                 await waitForUpdateEnd(sourceBuffer);
-                println(`after remove: ended=${video.ended}, readyState=${video.readyState}`);
+                println(`after remove: ended=${video.ended}, readyState=${readyStateName(video.readyState)}`);
 
                 video.currentTime = 0;
                 println(`after setting currentTime: ended=${video.ended}`);
