@@ -9,6 +9,7 @@ set(SOURCES
     Audio/WSOLAInternals.cpp
     Audio/WSOLATimeStretcher.cpp
     CodecParameters.cpp
+    Codecs/AAC.cpp
     Codecs/AV1.cpp
     Codecs/FLAC.cpp
     Codecs/H264.cpp
