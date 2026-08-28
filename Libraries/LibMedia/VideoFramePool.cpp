@@ -277,8 +277,10 @@ RefPtr<VideoFrame> VideoFrameSlotDirectory::resolve_frame(VideoFrameHandle const
         return nullptr;
 
     auto frame_or_error = resolve_frame_from_slot_buffer(*slot_buffer, handle, move(on_release));
-    if (frame_or_error.is_error())
+    if (frame_or_error.is_error()) {
+        dbgln("VideoFrameSlotDirectory: Slot {} of pool {} was announced but did not resolve: {}", handle.slot_index, handle.pool_id, frame_or_error.error());
         return nullptr;
+    }
     return frame_or_error.release_value();
 }
 
