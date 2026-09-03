@@ -4,11 +4,13 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+#include <LibIPC/Decoder.h>
+#include <LibIPC/Encoder.h>
 #include <LibMedia/VideoSurface.h>
 
-#ifdef AK_OS_MACOS
-
 namespace Media {
+
+#ifdef AK_OS_MACOS
 
 VideoSurface::~VideoSurface()
 {
@@ -21,6 +23,45 @@ ErrorOr<NonnullRefPtr<VideoSurface>> VideoSurface::create(Core::IOSurfaceHandle 
     return adopt_nonnull_ref_or_enomem(new (nothrow) VideoSurface(move(io_surface), id));
 }
 
+ErrorOr<NonnullRefPtr<VideoSurface>> VideoSurface::create_from_mach_port(Core::MachPort const& port)
+{
+    return create(Core::IOSurfaceHandle::from_mach_port(port));
 }
 
 #endif
+
+}
+
+namespace IPC {
+
+template<>
+ErrorOr<void> encode(Encoder& encoder, RefPtr<Media::VideoSurface> const& surface)
+{
+    TRY(encoder.encode(surface != nullptr));
+    if (surface == nullptr)
+        return {};
+
+#ifdef AK_OS_MACOS
+    TRY(encoder.append_attachment(Attachment::from_mach_port(surface->create_mach_port(), Core::MachPort::MessageRight::MoveSend)));
+    return {};
+#else
+    return Error::from_string_literal("This platform has no video surfaces to encode");
+#endif
+}
+
+template<>
+ErrorOr<RefPtr<Media::VideoSurface>> decode(Decoder& decoder)
+{
+    if (!TRY(decoder.decode<bool>()))
+        return RefPtr<Media::VideoSurface> {};
+
+#ifdef AK_OS_MACOS
+    auto attachment = decoder.attachments().dequeue();
+    VERIFY(attachment.message_right() == Core::MachPort::MessageRight::MoveSend);
+    return TRY(Media::VideoSurface::create_from_mach_port(attachment.release_mach_port()));
+#else
+    return Error::from_string_literal("This platform has no video surfaces to decode");
+#endif
+}
+
+}
