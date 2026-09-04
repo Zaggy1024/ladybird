@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<script src="../include.js"></script>
+<canvas id="canvas" width="16" height="16"></canvas>
+<script>
+    // Once readyState reaches HAVE_CURRENT_DATA there is a frame for the current position, so capturing the video
+    // must produce its pixels no matter which decoder produced the frame.
+    promiseTest(async () => {
+        const video = document.createElement("video");
+        video.src = "../../../Assets/solid-blue-160x120.webm";
+        await new Promise(resolve => video.addEventListener("loadeddata", resolve, { once: true }));
+
+        const context = document.getElementById("canvas").getContext("2d");
+        context.drawImage(video, 0, 0, 16, 16);
+        const [red, green, blue, alpha] = context.getImageData(8, 8, 1, 1).data;
+
+        println(`readyState ${video.readyState}`);
+        println(`captured rgba(${red}, ${green}, ${blue}, ${alpha})`);
+    });
+</script>

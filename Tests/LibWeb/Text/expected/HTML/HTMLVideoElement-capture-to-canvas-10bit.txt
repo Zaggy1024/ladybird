@@ -1,0 +1,2 @@
+readyState 4
+captured rgba(0, 14, 255, 255)
