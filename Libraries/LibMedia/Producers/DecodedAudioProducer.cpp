@@ -408,8 +408,6 @@ void DecodedAudioProducer::ThreadData::queue_block(AudioBlock const& block)
     // FIXME: Specify trailing samples in the demuxer, and drop them here or in the audio decoder implementation.
 
     VERIFY(!block.is_empty());
-    if (m_seek_id.load() != m_last_processed_seek_id)
-        return;
     m_latest_available_timestamp = block.media_time_end();
     m_queue.enqueue({ block });
     VERIFY(!m_queue.tail().block.is_empty());
@@ -459,11 +457,9 @@ DecoderErrorOr<void> DecodedAudioProducer::ThreadData::retrieve_next_block(Audio
     }
 }
 
-void DecodedAudioProducer::ThreadData::resolve_seek(u32 seek_id, bool moved_position)
+void DecodedAudioProducer::ThreadData::resolve_seek(u32 seek_id)
 {
     m_last_processed_seek_id = seek_id;
-    if (moved_position)
-        m_current_halting_status = PipelineStatus::Pending;
 }
 
 bool DecodedAudioProducer::ThreadData::handle_seek()
@@ -475,15 +471,12 @@ bool DecodedAudioProducer::ThreadData::handle_seek()
         return false;
 
     AK::Duration timestamp;
-    bool moved_position = false;
     AudioBlock last_block;
 
     auto handle_error = [&](DecoderError&& error) {
         auto locker = take_lock();
-        if (moved_position)
-            m_current_halting_status = PipelineStatus::Pending;
         enter_halting_state(PipelineStatus::Error, move(error));
-        m_last_processed_seek_id = seek_id;
+        resolve_seek(seek_id);
     };
 
     while (true) {
@@ -493,6 +486,7 @@ bool DecodedAudioProducer::ThreadData::handle_seek()
             timestamp = m_seek_timestamp;
             m_demuxer->reset_blocking_reads_aborted_for_track(m_track);
             m_queue.clear();
+            m_current_halting_status = PipelineStatus::Pending;
             m_frame_awaiting_decoder_replacement.clear();
         }
 
@@ -516,7 +510,6 @@ bool DecodedAudioProducer::ThreadData::handle_seek()
 
         if (demuxer_seek_result == DemuxerSeekResult::MovedPosition) {
             flush_decoder();
-            moved_position = true;
             last_block.clear();
         }
 
@@ -528,7 +521,7 @@ bool DecodedAudioProducer::ThreadData::handle_seek()
                 if (coded_frame_result.error().category() == DecoderErrorCategory::EndOfStream) {
                     if (m_decoder == nullptr) {
                         auto locker = take_lock();
-                        resolve_seek(seek_id, moved_position);
+                        resolve_seek(seek_id);
                         return true;
                     }
                     m_decoder->signal_end_of_stream();
@@ -563,7 +556,7 @@ bool DecodedAudioProducer::ThreadData::handle_seek()
                             continue;
 
                         auto locker = take_lock();
-                        resolve_seek(seek_id, moved_position);
+                        resolve_seek(seek_id);
                         if (!last_block.is_empty())
                             queue_block(last_block);
                         return true;
@@ -578,14 +571,14 @@ bool DecodedAudioProducer::ThreadData::handle_seek()
 
                 if (current_block.contains_media_time(timestamp)) {
                     auto locker = take_lock();
-                    resolve_seek(seek_id, moved_position);
+                    resolve_seek(seek_id);
                     queue_block(current_block);
                     return true;
                 }
 
                 if (current_block.media_time_start() > timestamp) {
                     auto locker = take_lock();
-                    resolve_seek(seek_id, moved_position);
+                    resolve_seek(seek_id);
 
                     if (!last_block.is_empty())
                         queue_block(last_block);
