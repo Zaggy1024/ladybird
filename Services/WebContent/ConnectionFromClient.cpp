@@ -2808,6 +2808,11 @@ void ConnectionFromClient::did_worker_agent_close(Web::HTML::WorkerAgentOwnerTok
     Web::HTML::WorkerAgentParent::did_close_worker(owner_token);
 }
 
+void ConnectionFromClient::did_worker_agent_die(Web::HTML::WorkerAgentOwnerToken owner_token)
+{
+    Web::HTML::WorkerAgentParent::did_worker_agent_die(owner_token);
+}
+
 // https://html.spec.whatwg.org/multipage/speculative-loading.html#nav-traversal-ui:close-a-top-level-traversable
 void ConnectionFromClient::request_close(u64 page_id)
 {
