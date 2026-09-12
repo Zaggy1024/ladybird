@@ -552,7 +552,13 @@ private:
     FlatPtr m_heap_region_end;
 };
 
-AK::JsonObject Heap::dump_graph()
+NO_SANITIZE_ADDRESS AK::JsonObject Heap::dump_graph()
+{
+    GC_CAPTURE_CONSERVATIVE_SCAN_ORIGIN(origin);
+    return build_graph(origin);
+}
+
+AK::JsonObject Heap::build_graph(ConservativeScanOrigin const& origin)
 {
     // An in-progress incremental sweep would leave parts of the heap as freelist
     // entries while the conservative scan in gather_roots() can still pick up
@@ -562,7 +568,7 @@ AK::JsonObject Heap::dump_graph()
 
     HashMap<Cell*, HeapRoot> roots;
     Vector<StackFrameInfo> stack_frames;
-    gather_roots(roots, &stack_frames);
+    gather_roots(origin, roots, &stack_frames);
     GraphConstructorVisitor visitor(*this, roots);
     visitor.visit_all_cells();
     auto graph = visitor.dump();
@@ -615,7 +621,13 @@ void Heap::run_post_mark_phases(bool report)
     }
 }
 
-void Heap::collect_garbage(CollectionType collection_type, bool print_report)
+NO_SANITIZE_ADDRESS void Heap::collect_garbage(CollectionType collection_type, bool print_report)
+{
+    GC_CAPTURE_CONSERVATIVE_SCAN_ORIGIN(origin);
+    run_collection(origin, collection_type, print_report);
+}
+
+void Heap::run_collection(ConservativeScanOrigin const& origin, CollectionType collection_type, bool print_report)
 {
     VERIFY(!m_collecting_garbage);
 
@@ -648,7 +660,7 @@ void Heap::collect_garbage(CollectionType collection_type, bool print_report)
             HashMap<Cell*, HeapRoot> roots;
             {
                 ScopedPhaseTimer timer { report, g_phase_timings.gather_roots_us };
-                gather_roots(roots);
+                gather_roots(origin, roots);
             }
             {
                 ScopedPhaseTimer timer { report, g_phase_timings.mark_live_cells_us };
@@ -780,7 +792,7 @@ void Heap::register_sweep_callback(AK::Function<void()> callback)
     m_sweep_callbacks.append(move(callback));
 }
 
-void Heap::gather_roots(HashMap<Cell*, HeapRoot>& roots, Vector<StackFrameInfo>* out_stack_frames, IncludeIncomingCrossHeapMembers include_incoming_cross_heap_members)
+void Heap::gather_roots(ConservativeScanOrigin const& origin, HashMap<Cell*, HeapRoot>& roots, Vector<StackFrameInfo>* out_stack_frames, IncludeIncomingCrossHeapMembers include_incoming_cross_heap_members)
 {
     // Cross-heap members targeting this heap act as roots for local collections (as the foreign holder is invisible to a local mark).
     if (include_incoming_cross_heap_members == IncludeIncomingCrossHeapMembers::Yes) {
@@ -796,7 +808,7 @@ void Heap::gather_roots(HashMap<Cell*, HeapRoot>& roots, Vector<StackFrameInfo>*
     }
     {
         ScopedPhaseTimer timer { g_recording_phase_timings, g_phase_timings.gather_conservative_roots_us };
-        gather_conservative_roots(roots, out_stack_frames);
+        gather_conservative_roots(origin, roots, out_stack_frames);
     }
 
     {
@@ -850,30 +862,26 @@ void Heap::gather_asan_fake_stack_roots(HashMap<FlatPtr, HeapRoot>&, FlatPtr, Fl
 }
 #endif
 
-NO_SANITIZE_ADDRESS void Heap::gather_conservative_roots(HashMap<Cell*, HeapRoot>& roots, Vector<StackFrameInfo>* out_stack_frames)
+NO_SANITIZE_ADDRESS void Heap::gather_conservative_roots(ConservativeScanOrigin const& origin, HashMap<Cell*, HeapRoot>& roots, Vector<StackFrameInfo>* out_stack_frames)
 {
-    FlatPtr dummy;
-
     dbgln_if(HEAP_DEBUG, "gather_conservative_roots:");
 
-    jmp_buf buf;
-    setjmp(buf);
-
     HashMap<FlatPtr, HeapRoot> possible_pointers;
-
-    auto* raw_jmp_buf = reinterpret_cast<FlatPtr const*>(buf);
 
     auto heap_region_start = BlockAllocator::heap_region_start();
     auto heap_region_end = BlockAllocator::heap_region_end();
 
     {
         ScopedPhaseTimer timer { g_recording_phase_timings, g_phase_timings.conservative_register_scan_us };
-        for (size_t i = 0; i < ((size_t)sizeof(buf)) / sizeof(FlatPtr); ++i)
-            add_possible_value(possible_pointers, raw_jmp_buf[i], HeapRoot { .type = HeapRoot::Type::RegisterPointer }, heap_region_start, heap_region_end);
+        for (size_t i = 0; i < origin.register_count; ++i)
+            add_possible_value(possible_pointers, origin.registers[i], HeapRoot { .type = HeapRoot::Type::RegisterPointer }, heap_region_start, heap_region_end);
     }
 
-    auto stack_reference = bit_cast<FlatPtr>(&dummy);
+    // The scan covers the caller's frames only; the collection's own frames, from here up to the floor, are left out.
+    FlatPtr own_frame;
+    auto stack_reference = origin.stack_floor;
     auto stack_top = m_stack_info.top();
+    VERIFY(stack_reference > bit_cast<FlatPtr>(&own_frame) && stack_reference < stack_top);
 
     // Build frame boundary map for annotation if requested.
     // Each entry maps a frame pointer address to the stack frame index in out_stack_frames.

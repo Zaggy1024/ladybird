@@ -6,8 +6,9 @@
 
 #pragma once
 
+#include <AK/Platform.h>
 #include <AK/Vector.h>
-#include <LibGC/Forward.h>
+#include <LibGC/Heap.h>
 
 namespace GC {
 
@@ -23,9 +24,11 @@ public:
     void add(Heap&);
     void remove(Heap&);
 
-    void collect_garbage(bool print_report = false);
+    NEVER_INLINE void collect_garbage(bool print_report = false);
 
 private:
+    NEVER_INLINE void run_collection(Heap::ConservativeScanOrigin const&, bool print_report);
+
     Vector<Heap*> m_heaps;
 };
 

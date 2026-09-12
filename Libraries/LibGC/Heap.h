@@ -33,8 +33,20 @@
 #include <LibGC/RootVector.h>
 #include <LibGC/WeakBlock.h>
 #include <LibGC/WeakContainer.h>
+#include <setjmp.h>
 
 namespace GC {
+
+// Captures a ConservativeScanOrigin named `origin` for the frame this is expanded in. See Heap::ConservativeScanOrigin.
+#define GC_CAPTURE_CONSERVATIVE_SCAN_ORIGIN(origin)                                    \
+    jmp_buf origin##_registers;                                                          \
+    setjmp(origin##_registers);                                                          \
+    FlatPtr origin##_stack_floor;                                                        \
+    ::GC::Heap::ConservativeScanOrigin origin {                                          \
+        .stack_floor = bit_cast<FlatPtr>(&origin##_stack_floor),                         \
+        .registers = reinterpret_cast<FlatPtr const*>(origin##_registers),               \
+        .register_count = (size_t)sizeof(origin##_registers) / sizeof(FlatPtr),          \
+    }
 
 struct StackFrameInfo {
     String label;
@@ -82,8 +94,21 @@ public:
         CollectEverything,
     };
 
-    void collect_garbage(CollectionType = CollectionType::CollectGarbage, bool print_report = false);
-    AK::JsonObject dump_graph();
+    // Where the conservative scan starts: the caller's frames from stack_floor up, plus its callee-saved registers as
+    // captured on entry. The collection's own frames below the floor hold only stale words from earlier, deeper calls
+    // -- and the caller's spilled registers, which the entry capture already covers.
+    struct ConservativeScanOrigin {
+        FlatPtr stack_floor { 0 };
+        FlatPtr const* registers { nullptr };
+        size_t register_count { 0 };
+    };
+
+    // NB: NEVER_INLINE so that each entry point has a frame of its own to capture the origin in: setjmp() must run in
+    //     the frame whose registers it saves, and the floor is a local that the prologue places below that frame's
+    //     own spills. The definitions are NO_SANITIZE_ADDRESS so that those locals stay on the real stack rather
+    //     than ASan's fake one.
+    NEVER_INLINE void collect_garbage(CollectionType = CollectionType::CollectGarbage, bool print_report = false);
+    NEVER_INLINE AK::JsonObject dump_graph();
 
     bool should_collect_on_every_allocation() const { return m_should_collect_on_every_allocation; }
     // This is true for any CollectEverything cycle, not only heap teardown.
@@ -168,10 +193,13 @@ private:
         No,
         Yes,
     };
-    void gather_roots(HashMap<Cell*, HeapRoot>&, Vector<StackFrameInfo>* out_stack_frames = nullptr, IncludeIncomingCrossHeapMembers = IncludeIncomingCrossHeapMembers::Yes);
+    NEVER_INLINE void run_collection(ConservativeScanOrigin const&, CollectionType, bool print_report);
+    NEVER_INLINE AK::JsonObject build_graph(ConservativeScanOrigin const&);
+
+    void gather_roots(ConservativeScanOrigin const&, HashMap<Cell*, HeapRoot>&, Vector<StackFrameInfo>* out_stack_frames = nullptr, IncludeIncomingCrossHeapMembers = IncludeIncomingCrossHeapMembers::Yes);
     static void mark_live_cells_across(ReadonlySpan<Heap* const>, HashMap<Cell*, HeapRoot> const& roots);
     void run_post_mark_phases(bool report);
-    void gather_conservative_roots(HashMap<Cell*, HeapRoot>&, Vector<StackFrameInfo>* out_stack_frames = nullptr);
+    void gather_conservative_roots(ConservativeScanOrigin const&, HashMap<Cell*, HeapRoot>&, Vector<StackFrameInfo>* out_stack_frames = nullptr);
     void gather_asan_fake_stack_roots(HashMap<FlatPtr, HeapRoot>&, FlatPtr, FlatPtr heap_region_start, FlatPtr heap_region_end, FlatPtr stack_reference, FlatPtr stack_top);
     void mark_live_cells(HashMap<Cell*, HeapRoot> const& live_cells);
     void finalize_unmarked_cells();
