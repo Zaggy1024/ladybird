@@ -5,12 +5,13 @@
  */
 
 #include <LibMedia/MediaSourceExtensions/TrackBuffer.h>
-#include <LibMedia/MediaSourceExtensions/TrackBufferDemuxer.h>
+#include <LibMedia/MediaSourceExtensions/SourceBufferDemuxer.h>
 
 namespace Media::MediaSourceExtensions {
 
-TrackBuffer::TrackBuffer(NonnullRefPtr<TrackBufferDemuxer> demuxer)
+TrackBuffer::TrackBuffer(NonnullRefPtr<SourceBufferDemuxer> demuxer, Media::Track const& track)
     : m_demuxer(move(demuxer))
+    , m_track(track)
 {
 }
 
