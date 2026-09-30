@@ -1,5 +1,5 @@
 after ending: ended=true
-after remove: ended=true, readyState=HAVE_CURRENT_DATA
+after remove: ended=true, readyState=HAVE_METADATA
 after setting currentTime: ended=true
 after play(): ended=true
 seeking: ended=false
