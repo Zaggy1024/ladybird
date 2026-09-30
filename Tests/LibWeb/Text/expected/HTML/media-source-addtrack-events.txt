@@ -1,0 +1,3 @@
+appending two audio tracks
+appending two video tracks
+audio tracks: 2, video tracks: 2
