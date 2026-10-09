@@ -7,7 +7,7 @@
 #pragma once
 
 #include <AK/Vector.h>
-#include <LibMedia/Audio/PlaybackStream.h>
+#include <LibAudio/PlaybackStream.h>
 #include <LibTest/TestCase.h>
 
 // A device stream the test drives by hand: it records control calls and renders a callback on demand.
