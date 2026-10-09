@@ -146,6 +146,9 @@ public:
     bool has_crashed_views() const { return !m_crashed_view_ids.is_empty(); }
     ErrorOr<void> reconnect_to_compositor_process(Badge<Application>);
     ErrorOr<void> recreate_compositor_contexts(Badge<Application>);
+    // The user let this process's pages capture audio. The AudioServer hears of it before this returns, so a page
+    // told afterwards finds the grant in place.
+    ErrorOr<void> allow_audio_capture();
     void replay_compositor_view_state_after_reconnect(Badge<Application>);
     void notify_compositor_process_reconnected(Badge<Application>);
     Web::CompositorContextId compositor_context_id_for_page(WebContentPage const&);
@@ -220,12 +223,15 @@ private:
     ProcessHandle m_process_handle;
 
     ErrorOr<IPC::TransportHandle> connect_audio_server_client();
+    ErrorOr<void> grant_audio_capture_to_server();
 
     // The controller connections to the MediaServer and AudioServer spawned for this process, from its first media use
     // until it exits. The AudioServer mixes for this process alone, so a compromised one hears only its own site.
     RefPtr<MediaClient::Client> m_media_server_client;
     RefPtr<AudioServerControlClient> m_audio_server_client;
     u64 m_audio_tab_id { 0 };
+    // Whether the user let this process's pages capture audio; the AudioServer is told, again whenever it relaunches.
+    bool m_audio_capture_allowed { false };
     RefPtr<Core::Timer> m_detached_page_close_timer;
 
     RefPtr<WebUI> m_web_ui;

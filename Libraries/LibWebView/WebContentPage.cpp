@@ -1415,7 +1415,14 @@ void WebContentPage::did_request_permission(u64 request_id, Utf16String name, UR
         return;
     }
 
-    view().on_request_permission(name, origin, [page = NonnullRefPtr(*this), request_id](bool granted) {
+    view().on_request_permission(name, origin, [page = NonnullRefPtr(*this), request_id, name](bool granted) {
+        // The AudioServer refuses capture its tab was not granted, so it hears of the grant before the page does.
+        if (granted && name == "microphone"_utf16) {
+            if (auto result = page->client().allow_audio_capture(); result.is_error()) {
+                warnln("Unable to grant audio capture: {}", result.error());
+                granted = false;
+            }
+        }
         page->async_permission_request_completed(request_id, granted);
     });
 }

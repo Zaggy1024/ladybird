@@ -10,6 +10,7 @@
 #include <LibCore/EventLoop.h>
 #include <LibIPC/Transport.h>
 #include <LibMedia/Audio/AudioDevices.h>
+#include <LibMedia/Audio/CaptureDevices.h>
 #include <LibMedia/Audio/ClientConnection.h>
 #include <LibMedia/Audio/PlaybackStreamMixer.h>
 #include <LibMedia/Audio/RemotePlaybackStream.h>
@@ -72,7 +73,7 @@ struct RemoteFixture {
             return promise;
         });
         auto paired = MUST(IPC::Transport::create_paired());
-        server = Audio::ServerConnection::construct(move(paired.local), 1, *mixer, Audio::ServerConnection::DeviceEnumeration::Platform);
+        server = Audio::ServerConnection::construct(move(paired.local), 1, *mixer, Audio::ServerConnection::DeviceEnumeration::Platform, Audio::CaptureDevices::create([](Audio::SampleSpecification const&, u32, StringView, Audio::RecordStream::RecordCallback) { return Audio::RecordStream::CreatePromise::rejected(Error::from_string_literal("No capture in this test")); }));
         server->on_death = [this] { server_died = true; };
         client = adopt_ref(*new Audio::ClientConnection(MUST(paired.remote_handle.create_transport())));
     }
@@ -398,7 +399,7 @@ struct RemoteSinkFixture {
             if (!accepting_connections)
                 return Error::from_string_literal("The fixture is no longer accepting connections");
             auto paired = TRY(IPC::Transport::create_paired());
-            servers.append(Audio::ServerConnection::construct(move(paired.local), static_cast<int>(connections_requested), *mixer, Audio::ServerConnection::DeviceEnumeration::Platform));
+            servers.append(Audio::ServerConnection::construct(move(paired.local), static_cast<int>(connections_requested), *mixer, Audio::ServerConnection::DeviceEnumeration::Platform, Audio::CaptureDevices::create([](Audio::SampleSpecification const&, u32, StringView, Audio::RecordStream::RecordCallback) { return Audio::RecordStream::CreatePromise::rejected(Error::from_string_literal("No capture in this test")); })));
             return paired.remote_handle.create_transport();
         });
     }

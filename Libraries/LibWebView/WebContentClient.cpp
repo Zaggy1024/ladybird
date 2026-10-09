@@ -771,7 +771,27 @@ Messages::WebContentClient::RequestMediaServerConnectionResponse WebContentClien
 
 ErrorOr<IPC::TransportHandle> WebContentClient::connect_audio_server_client()
 {
-    return connect_new_audio_server_client(m_audio_server_client, m_audio_tab_id);
+    auto* previous_controller = m_audio_server_client.ptr();
+    auto handle = TRY(connect_new_audio_server_client(m_audio_server_client, m_audio_tab_id));
+    // A relaunched server starts without the grant, and the client must not get its connection before it has it.
+    if (m_audio_capture_allowed && m_audio_server_client.ptr() != previous_controller)
+        TRY(grant_audio_capture_to_server());
+    return handle;
+}
+
+ErrorOr<void> WebContentClient::allow_audio_capture()
+{
+    m_audio_capture_allowed = true;
+    TRY(ensure_audio_server_is_running(m_audio_server_client));
+    return grant_audio_capture_to_server();
+}
+
+ErrorOr<void> WebContentClient::grant_audio_capture_to_server()
+{
+    auto response = m_audio_server_client->send_sync_but_allow_failure<Messages::AudioServerControl::AllowCapture>(m_audio_tab_id);
+    if (!response)
+        return Error::from_string_literal("Failed to grant audio capture to the AudioServer");
+    return {};
 }
 
 Messages::WebContentClient::RequestAudioServerConnectionResponse WebContentClient::request_audio_server_connection()
