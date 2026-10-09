@@ -83,7 +83,7 @@ private:
     bool m_capture_allowed { false };
 
     DeviceEnumeration m_device_enumeration { DeviceEnumeration::None };
-    Optional<Media::AudioDevices::ListenerId> m_devices_changed_listener_id;
+    Optional<AudioDevices::ListenerId> m_devices_changed_listener_id;
     bool m_client_watches_devices { false };
 };
 
