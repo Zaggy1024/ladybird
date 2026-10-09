@@ -908,6 +908,25 @@ Tab::Tab(BrowserWindow* window, Optional<WebView::CanonicalTraversable&> travers
         dialog->open();
     };
 
+    view().on_request_permission = [this](auto const& name, auto const& origin, auto on_decided) {
+        auto* dialog = new QMessageBox(&view());
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->setIcon(QMessageBox::Icon::Question);
+        dialog->setWindowTitle("Ladybird");
+        dialog->setTextFormat(Qt::PlainText);
+        auto requester = origin.is_opaque() ? "this page"_string : origin.serialize();
+        dialog->setText(qstring_from_ak_string(MUST(String::formatted("Allow {} to use your {}?", requester, name))));
+        auto* allow_button = dialog->addButton("Allow", QMessageBox::ButtonRole::AcceptRole);
+        auto* block_button = dialog->addButton("Block", QMessageBox::ButtonRole::RejectRole);
+        dialog->setDefaultButton(block_button);
+
+        QObject::connect(dialog, &QDialog::finished, this, [dialog = QPointer<QMessageBox> { dialog }, allow_button, on_decided = AK::move(on_decided)](auto) mutable {
+            on_decided(dialog && dialog->clickedButton() == allow_button);
+        });
+
+        dialog->open();
+    };
+
     view().on_request_accept_dialog = [this]() {
         m_javascript_dialog->accept();
     };
