@@ -7,14 +7,14 @@
 #include "FakeDeviceStream.h"
 #include <AK/Atomic.h>
 #include <AK/Time.h>
+#include <AudioServer/CaptureDevices.h>
+#include <AudioServer/PlaybackStreamMixer.h>
+#include <AudioServer/ServerConnection.h>
 #include <LibCore/EventLoop.h>
 #include <LibIPC/Transport.h>
 #include <LibMedia/Audio/AudioDevices.h>
-#include <LibMedia/Audio/CaptureDevices.h>
 #include <LibMedia/Audio/ClientConnection.h>
-#include <LibMedia/Audio/PlaybackStreamMixer.h>
 #include <LibMedia/Audio/RemotePlaybackStream.h>
-#include <LibMedia/Audio/ServerConnection.h>
 #include <LibMedia/Sinks/AudioPlaybackSink.h>
 #include <LibTest/TestCase.h>
 
@@ -317,8 +317,9 @@ TEST_CASE(losing_the_connection_reports_output_lost_and_settles_requests)
 TEST_CASE(watching_devices_reports_the_servers_list_at_once)
 {
     RemoteFixture fixture;
+    // The test stands in for the platform's device watch.
     auto& devices = Audio::AudioDevices::the();
-    EXPECT(fixture.pump_until([&] { return devices.has_device_list(); }));
+    devices.report_device_list(Audio::AudioDeviceEnumeration {});
 
     Optional<Audio::AudioDeviceEnumeration> enumeration;
     fixture.client->watch_devices([&](ErrorOr<Audio::AudioDeviceEnumeration> result) { enumeration = result.release_value(); });
@@ -330,8 +331,9 @@ TEST_CASE(watching_devices_reports_the_servers_list_at_once)
 TEST_CASE(a_device_change_on_the_server_reaches_a_watching_client)
 {
     RemoteFixture fixture;
+    // The test stands in for the platform's device watch.
     auto& devices = Audio::AudioDevices::the();
-    EXPECT(fixture.pump_until([&] { return devices.has_device_list(); }));
+    devices.report_device_list(Audio::AudioDeviceEnumeration {});
     Audio::AudioDeviceEnumeration original { .inputs = devices.input_devices(), .outputs = devices.output_devices() };
 
     size_t reports = 0;

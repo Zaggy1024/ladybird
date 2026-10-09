@@ -5,8 +5,8 @@
  */
 
 #include <AK/Atomic.h>
+#include <AudioServer/ServerConnection.h>
 #include <LibCore/System.h>
-#include <LibMedia/Audio/ServerConnection.h>
 
 namespace Audio {
 
@@ -18,8 +18,6 @@ ServerConnection::ServerConnection(NonnullOwnPtr<IPC::Transport> transport, int 
     , m_capture_devices(move(capture_devices))
     , m_device_enumeration(device_enumeration)
 {
-    if (m_device_enumeration == DeviceEnumeration::Platform)
-        m_devices_changed_listener_id = AudioDevices::the().add_devices_changed_listener([this] { devices_changed(); });
 }
 
 ServerConnection::~ServerConnection()
@@ -184,6 +182,8 @@ void ServerConnection::set_stream_volume(u64 stream_id, float volume)
 void ServerConnection::watch_devices()
 {
     m_client_watches_devices = true;
+    if (m_device_enumeration == DeviceEnumeration::Platform && !m_devices_changed_listener_id.has_value())
+        m_devices_changed_listener_id = AudioDevices::the().add_devices_changed_listener([this] { devices_changed(); });
     // A list not yet available follows as soon as the platform reports one.
     if (m_device_enumeration == DeviceEnumeration::None || AudioDevices::the().has_device_list())
         send_device_list();
