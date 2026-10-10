@@ -74,6 +74,7 @@
     m_is_applying_offset = true;
     for (size_t i = 0; i < std::size(m_buttons); ++i)
         [m_buttons[i] setFrameOrigin:m_target_origins[i]];
+    [m_buttons[0].superview updateTrackingAreas];
     m_is_applying_offset = false;
     m_update_scheduled = false;
 }
